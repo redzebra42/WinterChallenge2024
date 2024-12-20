@@ -87,23 +87,36 @@ int distance(const Entity &ent1, const Entity &ent2)
     return (pow(ent1.x - ent2.x, 2) + pow(ent1.y - ent2.y, 2));
 }
 
-// organ closest to protein (1:my, 0:opp)
-Entity *closestOrgan(int player, const string &protein_type, const map<string, vector<Entity*>> &entities)
+// organ and protein closest to each other (1:my, 0:opp)
+int closestOrgan(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities)
 {
-    Entity *closest_organ = nullptr;
     int dist_min = numeric_limits<int>::max();
     vector<Entity*> organs;
     if (player == 1)
     {
         organs = entities.at("MY_ORGAN"); // maybe error because of const
     }
-    else
+    else if (player == 0)
     {
         organs = entities.at("OPP_ORGAN"); // maybe error because of const
     }
+    else 
+    {
+        cerr << "player should be 0 or 1" << endl;
+    }
     vector<Entity*> proteins = entities.at(protein_type);
-
-    // TODO itterate through the things to find the smallest distance
-
-    return closest_organ;
+    for (Entity *organ : organs)
+    {
+        for (Entity *protein : proteins)
+        {
+            int new_dist = distance(organ, protein);
+            if ( new_dist < dist_min)
+            {
+                dist_min = new_dist;
+                closest_organ = organ;
+                closest_protein = protein;
+            }
+        }
+    }
+    return dist_min;
 }

@@ -33,8 +33,16 @@ struct Entity
         organ_root_id(_organ_root_id) {}
 };
 
+// read room input from file
 vector<vector<Entity*>> readInputFromFile(int &entity_count, const string &file_name, int &width, int &height, vector<int> &my_proteins, vector<int> &opp_proteins, int &required_actions_count, map<string, vector<Entity*>> &entities);
+
+// write room data to file
 void writeRoomFile(int entity_count, const string &file_name, int width, int height, const vector<vector<Entity*>> &room, const vector<int> &my_proteins, const vector<int> &opp_proteins, int required_actions_count);
 
+// euclidian distance squared (because just used for comparing)
+int distance(const Entity &ent1, const Entity &ent2);
+
+// organ and protein closest to each other (1:my, 0:opp)
+int closestOrgan(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities);
 
 //#endif

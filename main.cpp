@@ -36,7 +36,7 @@ int codingameMain()
             int organ_parent_id;
             int organ_root_id;
             cin >> x >> y >> type >> owner >> organ_id >> organ_dir >> organ_parent_id >> organ_root_id; cin.ignore();
-            Entity* new_entity = new Entity(x, y, type, owner, organ_id, organ_dir, organ_parent_id, organ_root_id);
+            Entity *new_entity = new Entity(x, y, type, owner, organ_id, organ_dir, organ_parent_id, organ_root_id);
             if (owner == 1)
             {
                 entities["MY_ORGAN"].push_back(new_entity);
@@ -56,13 +56,22 @@ int codingameMain()
         cin >> opp_proteins[0] >> opp_proteins[1] >> opp_proteins[2] >> opp_proteins[3]; cin.ignore(); // opponent's protein stock
         int required_actions_count; // your number of organisms, output an action for each one in any order
         cin >> required_actions_count; cin.ignore();
+
+        // find the best organ to make
+        Entity *closest_organ, *closest_protein;
+        closestOrgan(closest_organ, closest_protein, 1, "A", entities);
+
         for (int i = 0; i < required_actions_count; i++)
         {
-
-            // Write an action using cout. DON'T FORGET THE "<< endl"
-            // To debug: cerr << "Debug messages..." << endl;
-
-            cout << "WAIT" << endl;
+            if (my_proteins[0] == 0)
+            {
+                cout << "WAIT" << endl;
+            }
+            else
+            {
+                // grow organ with the chosen organ and protein
+                cout << "GROW " << closest_organ->id << " " << closest_protein->x << " " << closest_protein->y << " BASIC" << endl;
+            }
         break;
         }
     }
@@ -75,5 +84,13 @@ int main(int argc, char **argv)
     map<string, vector<Entity*>> entities;
     vector<vector<Entity*>> room = readInputFromFile(entity_count, "input_room.txt", width, height, my_proteins, opp_proteins, required_actions_count, entities);
     writeRoomFile(entity_count, "input_room_copy.txt", width, height, room, my_proteins, opp_proteins, required_actions_count);
+
+    // find the best organ to make
+    Entity *closest_organ, *closest_protein;
+    closestOrgan(closest_organ, closest_protein, 1, "A", entities);
+
+    // grow organ with the chosen organ and protein
+    cout << "GROW " << closest_organ->id << " " << closest_protein->x << " " << closest_protein->y << " BASIC" << endl;
+
     return 0;
 }
