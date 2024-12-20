@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <fstream>
+#include <map>
 
 #include "utils.h"
 
@@ -23,6 +24,7 @@ int codingameMain()
     while (1) {
         int entity_count;
         cin >> entity_count; cin.ignore();
+        map<string, vector<Entity*>> entities;
         for (int i = 0; i < entity_count; i++)
         {
             int x;
@@ -35,6 +37,18 @@ int codingameMain()
             int organ_root_id;
             cin >> x >> y >> type >> owner >> organ_id >> organ_dir >> organ_parent_id >> organ_root_id; cin.ignore();
             Entity* new_entity = new Entity(x, y, type, owner, organ_id, organ_dir, organ_parent_id, organ_root_id);
+            if (owner == 1)
+            {
+                entities["MY_ORGAN"].push_back(new_entity);
+            }
+            else if (owner == 0)
+            {
+                entities["OPP_ORGAN"].push_back(new_entity);
+            }
+            else
+            {
+                entities[type].push_back(new_entity);
+            }
             room[y][x] = new_entity;
         }
         vector<int> my_proteins(4, 0), opp_proteins(4, 0);
@@ -58,6 +72,8 @@ int main(int argc, char **argv)
 {
     int entity_count, width, height, required_actions_count;
     vector<int> my_proteins(4, 0), opp_proteins(4, 0);
-    vector<vector<Entity*>> room = readInputFromFile(entity_count, "input_room.txt", width, height, my_proteins, opp_proteins, required_actions_count);
+    map<string, vector<Entity*>> entities;
+    vector<vector<Entity*>> room = readInputFromFile(entity_count, "input_room.txt", width, height, my_proteins, opp_proteins, required_actions_count, entities);
+    writeRoomFile(entity_count, "input_room_copy.txt", width, height, room, my_proteins, opp_proteins, required_actions_count);
     return 0;
 }

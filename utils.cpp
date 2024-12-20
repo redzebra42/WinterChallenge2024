@@ -3,12 +3,13 @@
 #include <vector>
 #include <algorithm>
 #include <fstream>
+#include <map>
 
 #include "utils.h" 
 
 using namespace std;
 
-vector<vector<Entity*>> readInputFromFile(int &entity_count, const string &file_name, int &width, int &height, vector<int> &my_proteins, vector<int> &opp_proteins, int &required_actions_count)
+vector<vector<Entity*>> readInputFromFile(int &entity_count, const string &file_name, int &width, int &height, vector<int> &my_proteins, vector<int> &opp_proteins, int &required_actions_count, map<string, vector<Entity*>> &entities)
 {
     ifstream room_file (file_name);
     if (room_file)
@@ -27,6 +28,18 @@ vector<vector<Entity*>> readInputFromFile(int &entity_count, const string &file_
             int organ_root_id;
             room_file >> x >> y >> type >> owner >> organ_id >> organ_dir >> organ_parent_id >> organ_root_id;
             Entity* new_entity = new Entity(x, y, type, owner, organ_id, organ_dir, organ_parent_id, organ_root_id);
+            if (owner == 1)
+            {
+                entities["MY_ORGAN"].push_back(new_entity);
+            }
+            else if (owner == 0)
+            {
+                entities["OPP_ORGAN"].push_back(new_entity);
+            }
+            else
+            {
+                entities[type].push_back(new_entity);
+            }
             room[y][x] = new_entity;
         }
         room_file >> my_proteins[0] >> my_proteins[1] >> my_proteins[2] >> my_proteins[3];
