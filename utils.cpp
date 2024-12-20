@@ -81,6 +81,41 @@ void writeRoomFile(int entity_count, const string &file_name, int width, int hei
     }
 }
 
+string entityToString(Entity *ent)
+{
+    if (ent == nullptr) {return " ";}
+    else if (ent->type == "WALL") {return "X";}
+    else if (ent->type == "ROOT" || ent->type == "BASIC") {return to_string(ent->owner);}
+    else {return ent->type;}
+}
+
+// print a room in the terminal
+void printRoom(const vector<vector<Entity*>> &room)
+{
+    int height = room.size();
+    int width = room[0].size();
+    cout << "-";
+    for (int i=0; i<width; i++)
+    {
+        cout << "----";
+    }
+    cout << endl;
+    for (int j=0; j<height; j++)
+    {
+        cout << "|";
+        for (int i=0; i<width; i++)
+        {
+            cout << " " << entityToString(room[j][i]) << " |";
+        }
+        cout << endl << "-";
+        for (int k=0; k<width; k++)
+        {
+            cout << "----";
+        }
+        cout << endl;
+    }
+}
+
 // Euclidian distance squared (because just used for comparing)
 int distance(const Entity &ent1, const Entity &ent2)
 {

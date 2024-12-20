@@ -85,12 +85,16 @@ int main(int argc, char **argv)
     vector<vector<Entity*>> room = readInputFromFile(entity_count, "input_room.txt", width, height, my_proteins, opp_proteins, required_actions_count, entities);
     writeRoomFile(entity_count, "input_room_copy.txt", width, height, room, my_proteins, opp_proteins, required_actions_count);
 
+    printRoom(room);
+
     // find the best organ to make
     Entity *closest_organ, *closest_protein;
     closestOrgan(closest_organ, closest_protein, 1, "A", entities);
 
     // grow organ with the chosen organ and protein
     cout << "GROW " << closest_organ->id << " " << closest_protein->x << " " << closest_protein->y << " BASIC" << endl;
+    
+    printRoom(room);
 
     return 0;
 }

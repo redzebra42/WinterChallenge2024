@@ -39,6 +39,11 @@ vector<vector<Entity*>> readInputFromFile(int &entity_count, const string &file_
 // write room data to file
 void writeRoomFile(int entity_count, const string &file_name, int width, int height, const vector<vector<Entity*>> &room, const vector<int> &my_proteins, const vector<int> &opp_proteins, int required_actions_count);
 
+string entityToString(Entity *ent);
+
+// print a room in the terminal
+void printRoom(const vector<vector<Entity*>> &room);
+
 // euclidian distance squared (because just used for comparing)
 int distance(const Entity &ent1, const Entity &ent2);
 
