@@ -17,9 +17,9 @@ using namespace std;
 // returns if a tile is free
 bool isFree(pair<int, int> tile, vector<vector<Entity*>> room)
 {
-    if (room[tile.first][tile.second])
+    if (room[tile.second][tile.first])
     {
-        return room[tile.first][tile.second]->owner == -1 && room[tile.first][tile.second]->type != "WALL";
+        return room[tile.second][tile.first]->owner == -1 && room[tile.second][tile.first]->type != "WALL";
     }
     else 
     {
