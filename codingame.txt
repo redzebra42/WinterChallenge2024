@@ -4,17 +4,11 @@
 #include <algorithm>
 #include <fstream>
 #include <map>
+#include <cmath>
 #include <queue>
 #include <unordered_map>
-#include <cmath>
 
 using namespace std;
-
-// TODO change old euclidian distance to accurateDistance
-
-/**
- * A* algorithme (thanks ChatGPT)
- **/
 
 struct Entity
 {
@@ -40,99 +34,6 @@ struct Entity
         organ_root_id(_organ_root_id) {}
 };
 
-// Structure to represent a node in the grid
-struct Node {
-    int x, y;       // Position on the grid
-    float g, h;     // Cost from start (g) and heuristic cost to goal (h)
-    Node* parent;   // Parent node for path reconstruction
-
-    Node(int x, int y, float g, float h, Node* parent = nullptr)
-        : x(x), y(y), g(g), h(h), parent(parent) {}
-
-    // Calculate the total cost f = g + h
-    float f() const { return g + h; }
-
-    // Compare nodes to prioritize the one with the smallest f value
-    bool operator>(const Node& other) const {
-        return f() > other.f();
-    }
-};
-
-// Manhattan distance heuristic
-float heuristic(int x1, int y1, int x2, int y2) {
-    return abs(x1 - x2) + abs(y1 - y2);
-}
-
-// A* algorithm
-vector<Node> aStar(vector<vector<Entity*>>& grid, Node start, Node goal) {
-    int rows = grid.size();
-    int cols = grid[0].size();
-
-    priority_queue<Node, vector<Node>, greater<Node>> openList;  // Min-heap
-    unordered_map<int, unordered_map<int, bool>> closedList;  // Closed list for visited nodes
-
-    // Start node is pushed to open list
-    openList.push(start);
-
-    // Direction vectors for 4 directions (up, down, left, right)
-    vector<pair<int, int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
-
-    while (!openList.empty()) {
-        Node current = openList.top();
-        openList.pop();
-
-        // If we reached the goal, reconstruct the path
-        if (current.x == goal.x && current.y == goal.y) {
-            vector<Node> path;
-            Node* temp = &current;
-            while (temp) {
-                path.push_back(*temp);
-                temp = temp->parent;
-            }
-            reverse(path.begin(), path.end());
-            return path;
-        }
-
-        // Add current node to the closed list
-        closedList[current.x][current.y] = true;
-
-        // Explore the neighbors (4 directions)
-        for (const auto& dir : directions) {
-            int newX = current.x + dir.first;
-            int newY = current.y + dir.second;
-
-            // Skip out-of-bound or blocked cells or cells in the closed list
-            if (newX < 0 || newX >= rows || newY < 0 || newY >= cols || grid[newX][newY]->owner != -1 || grid[newX][newY]->type == "WALL" || closedList[newX][newY]) {
-                continue;
-            }
-
-            // Calculate g and h values for the neighbor
-            float g = current.g + 1; // Cost from start
-            float h = heuristic(newX, newY, goal.x, goal.y); // Heuristic cost to goal
-
-            // Create the neighbor node
-            Node neighbor(newX, newY, g, h, new Node(current));
-
-            // Push the neighbor to open list
-            openList.push(neighbor);
-        }
-    }
-
-    return {}; // Return empty path if no path found
-}
-
-void printPath(const vector<Node>& path) {
-    if (path.empty()) {
-        cout << "No path found!" << endl;
-        return;
-    }
-
-    cout << "Path from start to goal:" << endl;
-    for (const Node& node : path) {
-        cout << "(" << node.x << ", " << node.y << ") ";
-    }
-    cout << endl;
-}
 // Euclidian distance squared (because just used for comparing)
 int distance(const Entity &ent1, const Entity &ent2)
 {
@@ -142,7 +43,7 @@ int distance(const Entity &ent1, const Entity &ent2)
 // a more accurate (but longer to calcuate) distance based on A*
 int accurateDistance(const Entity &ent1, const Entity &ent2)
 {
-    // TODO
+    return 1;// TODO
 }
 
 // organ and protein closest to each other (1:my, 0:opp)
@@ -179,21 +80,127 @@ int closestOrgan(Entity *&closest_organ, Entity *&closest_protein, int player, c
     return dist_min;
 }
 
-// direction for from_node to face to_node (they need to be side by side)
-string faceDirection(Node from_node, Node to_node)
-{
-    vector<int> dir = {to_node.x - from_node.x, to_node.y - from_node.y};
-    if (dir == vector<int>{1, 0}) { return "E"; }
-    else if (dir == vector<int>{0, 1}) { return "S"; }
-    else if (dir == vector<int>{-1, 0}) { return "W"; }
-    else if (dir == vector<int>{0, -1}) { return "N"; }
-    else { return "X"; }
-}
-
 // returns if a tile is free
 bool isFree(pair<int, int> tile, vector<vector<Entity*>> room)
 {
-    return room[tile.first][tile.second]->owner == -1 && room[tile.first][tile.second]->type != "WALL";
+    if (room[tile.first][tile.second])
+    {
+        return room[tile.first][tile.second]->owner == -1 && room[tile.first][tile.second]->type != "WALL";
+    }
+    else 
+    {
+        return true;
+    }
+}
+
+/**
+ * A* algorithme (thanks ChatGPT)
+ **/
+
+// Structure to represent a node in the grid
+struct Node {
+    int x, y;       // Position on the grid
+    float g, h;     // Cost from start (g) and heuristic cost to goal (h)
+    Node* parent;   // Parent node for path reconstruction
+
+    Node(int x, int y, float g, float h, Node* parent = nullptr)
+        : x(x), y(y), g(g), h(h), parent(parent) {}
+
+    // Calculate the total cost f = g + h
+    float f() const { return g + h; }
+
+    // Compare nodes to prioritize the one with the smallest f value
+    bool operator>(const Node& other) const {
+        return f() > other.f();
+    }
+};
+
+// Manhattan distance heuristic
+float heuristic(int x1, int y1, int x2, int y2) {
+    return abs(x1 - x2) + abs(y1 - y2);
+}
+
+// A* algorithm
+vector<Node> aStar(vector<vector<Entity*>> &grid, Node start, Node goal) {
+    int rows = grid.size();
+    int cols = grid[0].size();
+
+    priority_queue<Node, vector<Node>, greater<Node>> openList;  // Min-heap
+    unordered_map<int, unordered_map<int, bool>> closedList;  // Closed list for visited nodes
+
+    // Start node is pushed to open list
+    openList.push(start);
+
+    // Direction vectors for 4 directions (up, down, left, right)
+    vector<pair<int, int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+
+    while (!openList.empty()) {
+        Node current = openList.top();
+        openList.pop();
+
+        // If we reached the goal, reconstruct the path
+        if (current.x == goal.x && current.y == goal.y) {
+            vector<Node> path;
+            Node* temp = &current;
+            while (temp) {
+                path.push_back(*temp);
+                temp = temp->parent;
+            }
+            reverse(path.begin(), path.end());
+            return path;
+        }
+
+        // Add current node to the closed list
+        closedList[current.x][current.y] = true;
+
+        // Explore the neighbors (4 directions)
+        for (const auto& dir : directions) {
+            int newX = current.x + dir.first;
+            int newY = current.y + dir.second;
+            
+            // Skip out-of-bound or blocked cells or cells in the closed list
+            if (newX < 0 || newX >= rows || newY < 0 || newY >= cols || !isFree(pair<int, int>{newX, newY}, grid) || closedList[newX][newY]) {
+                continue;
+            }
+
+            // Calculate g and h values for the neighbor
+            float g = current.g + 1; // Cost from start
+            float h = heuristic(newX, newY, goal.x, goal.y); // Heuristic cost to goal
+
+            // Create the neighbor node
+            Node neighbor(newX, newY, g, h, new Node(current));
+
+            // Push the neighbor to open list
+            openList.push(neighbor);
+        }
+    }
+
+    return {}; // Return empty path if no path found
+}
+
+void printPath(const vector<Node>& path) {
+    if (path.empty()) {
+        cout << "No path found!" << endl;
+        return;
+    }
+
+    cout << "Path from start to goal:" << endl;
+    for (const Node& node : path) {
+        cout << "(" << node.x << ", " << node.y << ") ";
+    }
+    cout << endl;
+}
+
+// direction for from_node to face to_node (they need to be side by side)
+string faceDirection(Node from_node, Node to_node)
+{
+    int diff_x = to_node.x - from_node.x;
+    int diff_y = to_node.y - from_node.y;
+    if (diff_x == 1 && diff_y == 0) { return "E"; }
+    else if (diff_x == 0 && diff_y == 1) { return "S"; }
+    else if (diff_x == -1 && diff_y == 0) { return "W"; }
+    else if (diff_x == 0 && diff_y == -1) { return "N"; }
+    else { return "X"; }
 }
 
 // return an empty space next to the organ, and {-1, -1} if there isn't one
@@ -215,6 +222,29 @@ pair<int, int> nextEmptySpace(vector<vector<Entity*>> room, map<string, vector<E
     return pair<int, int>{-1, -1};
 }
 
+//initialise the enities map with empty vectors
+void initEntities(map<string, vector<Entity*>> &entities)
+{
+    for (string type : vector<string>{"WALL",
+                                      "MY_ROOT",
+                                      "MY_BASIC",
+                                      "MY_TENTACLE",
+                                      "MY_HARVESTER",
+                                      "MY_SPORER",
+                                      "OPP_ROOT",
+                                      "OPP_BASIC",
+                                      "OPP_TENTACLE",
+                                      "OPP_HARVESTER",
+                                      "OPP_SPORER",
+                                      "MY_ORGAN",
+                                      "OPP_ORGAN",
+                                      "A",
+                                      "B",
+                                      "C",
+                                      "D"})
+        entities[type] = vector<Entity*>{};
+}
+
 int main()
 {
     int width;  // columns in the game grid
@@ -227,6 +257,7 @@ int main()
         int entity_count;
         cin >> entity_count; cin.ignore();
         map<string, vector<Entity*>> entities;
+        initEntities(entities);
         for (int i = 0; i < entity_count; i++)
         {
             int x;
@@ -274,8 +305,8 @@ int main()
             Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
             vector<Node> path = aStar(room, *start, *goal);
             Node harvester_pos = path[path.size()-2];
-            string direction = faceDirection(harvester_pos, path[path.size()]);
-            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " " + direction;
+            string direction = faceDirection(harvester_pos, path[path.size()-1]);
+            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " HARVESTER " + direction;
         }
         else if (my_proteins[0] > 0)
         {
@@ -283,13 +314,13 @@ int main()
             if (entities.at(protein_type).size() > 0)
             {
                 closestOrgan(grow_from, grow_to, 1, protein_type, entities);
-                action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " " + "N";
+                action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " BASIC " + "N";
             }
             else
             {
                 // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
                 pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from);
-                action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " " + "N";
+                action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N";
             }
         }
 
