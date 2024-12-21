@@ -125,7 +125,7 @@ int distance(const Entity &ent1, const Entity &ent2)
 // a more accurate (but longer to calcuate) distance based on A*
 int accurateDistance(const Entity &ent1, const Entity &ent2)
 {
-    // TODO
+    return 1;// TODO
 }
 
 // organ and protein closest to each other (1:my, 0:opp)

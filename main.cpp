@@ -147,6 +147,29 @@ pair<int, int> nextEmptySpace(vector<vector<Entity*>> room, map<string, vector<E
     return pair<int, int>{-1, -1};
 }
 
+//initialise the enities map with empty vectors
+void initEntities(map<string, vector<Entity*>> &entities)
+{
+    for (string type : vector<string>{"WALL",
+                                      "MY_ROOT",
+                                      "MY_BASIC",
+                                      "MY_TENTACLE",
+                                      "MY_HARVESTER",
+                                      "MY_SPORER",
+                                      "OPP_ROOT",
+                                      "OPP_BASIC",
+                                      "OPP_TENTACLE",
+                                      "OPP_HARVESTER",
+                                      "OPP_SPORER",
+                                      "MY_ORGAN",
+                                      "OPP_ORGAN",
+                                      "A",
+                                      "B",
+                                      "C",
+                                      "D"})
+        entities[type] = vector<Entity*>{};
+}
+
 int codingameMain()
 {
     int width;  // columns in the game grid
@@ -159,6 +182,7 @@ int codingameMain()
         int entity_count;
         cin >> entity_count; cin.ignore();
         map<string, vector<Entity*>> entities;
+        initEntities(entities);
         for (int i = 0; i < entity_count; i++)
         {
             int x;
@@ -238,18 +262,50 @@ int main(int argc, char **argv)
     int entity_count, width, height, required_actions_count;
     vector<int> my_proteins(4, 0), opp_proteins(4, 0);
     map<string, vector<Entity*>> entities;
+    initEntities(entities);
     vector<vector<Entity*>> room = readInputFromFile(entity_count, "input_room.txt", width, height, my_proteins, opp_proteins, required_actions_count, entities);
     writeRoomFile(entity_count, "input_room_copy.txt", width, height, room, my_proteins, opp_proteins, required_actions_count);
+    Entity *grow_from, *grow_to;
+    string action = "WAIT";
 
     printRoom(room);
 
-    // find the best organ to make
-    Entity *closest_organ, *closest_protein;
-    closestOrgan(closest_organ, closest_protein, 1, "A", entities);
+    // type of protein we're looking for
+    string protein_type = "A";
 
-    // grow organ with the chosen organ and protein
-    cout << "GROW " << closest_organ->organ_id << " " << closest_protein->x << " " << closest_protein->y << " BASIC" << endl;
-    
+    // growing a HARVESTER if possible (for now only one)
+    if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
+    {
+        closestOrgan(grow_from, grow_to, 1, protein_type, entities);
+        Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
+        Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
+        vector<Node> path = aStar(room, *start, *goal);
+        Node harvester_pos = path[path.size()-2];
+        string direction = faceDirection(harvester_pos, path[path.size()]);
+        action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " " + direction;
+    }
+    else if (my_proteins[0] > 0)
+    {
+        // find the best organ to make
+        if (entities.at(protein_type).size() > 0)
+        {
+            closestOrgan(grow_from, grow_to, 1, protein_type, entities);
+            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " " + "N";
+        }
+        else
+        {
+            // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
+            pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from);
+            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " " + "N";
+        }
+    }
+
+    // perform actions
+    for (int i = 0; i < required_actions_count; i++)
+    {
+        cout << action << endl;
+    }
+
     printRoom(room);
 
     return 0;
