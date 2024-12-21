@@ -90,10 +90,12 @@ string entityToString(Entity *ent)
 }
 
 // print a room in the terminal
-void printRoom(const vector<vector<Entity*>> &room)
+void printRoom(const vector<vector<Entity*>> &room, vector<int> my_proteins, vector<int> opp_proteins)
 {
     int height = room.size();
     int width = room[0].size();
+    cout << "my prot: " << my_proteins[0] << " " << my_proteins[1] << " " << my_proteins[2] << " " << my_proteins[3] << endl;
+    cout << "opp prot:" << opp_proteins[0] << " " << opp_proteins[1] << " " << opp_proteins[2] << " " << opp_proteins[3] << endl;
     cout << "-";
     for (int i=0; i<width; i++)
     {

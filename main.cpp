@@ -13,6 +13,19 @@ using namespace std;
 
 // TODO change old euclidian distance to accurateDistance
 
+// returns if a tile is free
+bool isFree(pair<int, int> tile, vector<vector<Entity*>> room)
+{
+    if (room[tile.first][tile.second])
+    {
+        return room[tile.first][tile.second]->owner == -1 && room[tile.first][tile.second]->type != "WALL";
+    }
+    else 
+    {
+        return true;
+    }
+}
+
 /**
  * A* algorithme (thanks ChatGPT)
  **/
@@ -41,7 +54,7 @@ float heuristic(int x1, int y1, int x2, int y2) {
 }
 
 // A* algorithm
-vector<Node> aStar(vector<vector<Entity*>>& grid, Node start, Node goal) {
+vector<Node> aStar(vector<vector<Entity*>> &grid, Node start, Node goal) {
     int rows = grid.size();
     int cols = grid[0].size();
 
@@ -77,9 +90,9 @@ vector<Node> aStar(vector<vector<Entity*>>& grid, Node start, Node goal) {
         for (const auto& dir : directions) {
             int newX = current.x + dir.first;
             int newY = current.y + dir.second;
-
+            
             // Skip out-of-bound or blocked cells or cells in the closed list
-            if (newX < 0 || newX >= rows || newY < 0 || newY >= cols || grid[newX][newY]->owner != -1 || grid[newX][newY]->type == "WALL" || closedList[newX][newY]) {
+            if (newX < 0 || newX >= rows || newY < 0 || newY >= cols || !isFree(pair<int, int>{newX, newY}, grid) || closedList[newX][newY]) {
                 continue;
             }
 
@@ -114,18 +127,13 @@ void printPath(const vector<Node>& path) {
 // direction for from_node to face to_node (they need to be side by side)
 string faceDirection(Node from_node, Node to_node)
 {
-    vector<int> dir = {to_node.x - from_node.x, to_node.y - from_node.y};
-    if (dir == vector<int>{1, 0}) { return "E"; }
-    else if (dir == vector<int>{0, 1}) { return "S"; }
-    else if (dir == vector<int>{-1, 0}) { return "W"; }
-    else if (dir == vector<int>{0, -1}) { return "N"; }
+    int diff_x = to_node.x - from_node.x;
+    int diff_y = to_node.y - from_node.y;
+    if (diff_x == 1 && diff_y == 0) { return "E"; }
+    else if (diff_x == 0 && diff_y == 1) { return "S"; }
+    else if (diff_x == -1 && diff_y == 0) { return "W"; }
+    else if (diff_x == 0 && diff_y == -1) { return "N"; }
     else { return "X"; }
-}
-
-// returns if a tile is free
-bool isFree(pair<int, int> tile, vector<vector<Entity*>> room)
-{
-    return room[tile.first][tile.second]->owner == -1 && room[tile.first][tile.second]->type != "WALL";
 }
 
 // return an empty space next to the organ, and {-1, -1} if there isn't one
@@ -230,8 +238,8 @@ int codingameMain()
             Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
             vector<Node> path = aStar(room, *start, *goal);
             Node harvester_pos = path[path.size()-2];
-            string direction = faceDirection(harvester_pos, path[path.size()]);
-            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " " + direction;
+            string direction = faceDirection(harvester_pos, path[path.size()-1]);
+            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " HARVESTER " + direction;
         }
         else if (my_proteins[0] > 0)
         {
@@ -239,13 +247,13 @@ int codingameMain()
             if (entities.at(protein_type).size() > 0)
             {
                 closestOrgan(grow_from, grow_to, 1, protein_type, entities);
-                action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " " + "N";
+                action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " BASIC " + "N";
             }
             else
             {
                 // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
                 pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from);
-                action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " " + "N";
+                action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N";
             }
         }
 
@@ -268,7 +276,7 @@ int main(int argc, char **argv)
     Entity *grow_from, *grow_to;
     string action = "WAIT";
 
-    printRoom(room);
+    printRoom(room, my_proteins, opp_proteins);
 
     // type of protein we're looking for
     string protein_type = "A";
@@ -281,8 +289,8 @@ int main(int argc, char **argv)
         Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
         vector<Node> path = aStar(room, *start, *goal);
         Node harvester_pos = path[path.size()-2];
-        string direction = faceDirection(harvester_pos, path[path.size()]);
-        action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " " + direction;
+        string direction = faceDirection(harvester_pos, path[path.size()-1]);
+        action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " HARVESTER " + direction;
     }
     else if (my_proteins[0] > 0)
     {
@@ -290,13 +298,13 @@ int main(int argc, char **argv)
         if (entities.at(protein_type).size() > 0)
         {
             closestOrgan(grow_from, grow_to, 1, protein_type, entities);
-            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " " + "N";
+            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " BASIC " + "N";
         }
         else
         {
             // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
             pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from);
-            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " " + "N";
+            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N";
         }
     }
 
@@ -306,7 +314,7 @@ int main(int argc, char **argv)
         cout << action << endl;
     }
 
-    printRoom(room);
+    printRoom(room, my_proteins, opp_proteins);
 
     return 0;
 }

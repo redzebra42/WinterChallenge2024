@@ -42,7 +42,7 @@ void writeRoomFile(int entity_count, const string &file_name, int width, int hei
 string entityToString(Entity *ent);
 
 // print a room in the terminal
-void printRoom(const vector<vector<Entity*>> &room);
+void printRoom(const vector<vector<Entity*>> &room, vector<int> my_proteins, vector<int> opp_proteins);
 
 // euclidian distance squared (because just used for comparing)
 int distance(const Entity &ent1, const Entity &ent2);
