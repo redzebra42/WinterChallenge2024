@@ -122,6 +122,31 @@ string faceDirection(Node from_node, Node to_node)
     else { return "X"; }
 }
 
+// returns if a tile is free
+bool isFree(pair<int, int> tile, vector<vector<Entity*>> room)
+{
+    return room[tile.first][tile.second]->owner == -1 && room[tile.first][tile.second]->type != "WALL";
+}
+
+// return an empty space next to the organ, and {-1, -1} if there isn't one
+pair<int, int> nextEmptySpace(vector<vector<Entity*>> room, map<string, vector<Entity*>> entities, Entity *&from_organ)
+{
+    vector<pair<int, int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+    for (Entity *organ : entities.at("MY_ORGAN"))
+    {
+        for (const pair<int, int> dir : directions)
+        {
+            pair<int, int> new_tile = {organ->x+dir.first, organ->y+dir.second};
+            if (isFree(new_tile, room))
+            {
+                from_organ = organ;
+                return new_tile;
+            }
+        }
+    }
+    return pair<int, int>{-1, -1};
+}
+
 int codingameMain()
 {
     int width;  // columns in the game grid
@@ -190,13 +215,14 @@ int codingameMain()
             if (entities.at(protein_type).size() > 0)
             {
                 closestOrgan(grow_from, grow_to, 1, protein_type, entities);
+                action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " " + "N";
             }
             else
             {
                 // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
-                // TODO
+                pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from);
+                action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " " + "N";
             }
-            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " " + "N";
         }
 
         // perform actions
