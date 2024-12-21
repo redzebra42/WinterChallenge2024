@@ -47,6 +47,9 @@ void printRoom(const vector<vector<Entity*>> &room);
 // euclidian distance squared (because just used for comparing)
 int distance(const Entity &ent1, const Entity &ent2);
 
+// a more accurate (but longer to calcuate) distance based on A*
+int accurateDistance(const Entity &ent1, const Entity &ent2);
+
 // organ and protein closest to each other (1:my, 0:opp)
 int closestOrgan(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities);
 

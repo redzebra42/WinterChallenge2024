@@ -11,6 +11,8 @@
 
 using namespace std;
 
+// TODO change old euclidian distance to accurateDistance
+
 /**
  * A* algorithme (thanks ChatGPT)
  **/
@@ -109,6 +111,17 @@ void printPath(const vector<Node>& path) {
     cout << endl;
 }
 
+// direction for from_node to face to_node (they need to be side by side)
+string faceDirection(Node from_node, Node to_node)
+{
+    vector<int> dir = {to_node.x - from_node.x, to_node.y - from_node.y};
+    if (dir == vector<int>{1, 0}) { return "E"; }
+    else if (dir == vector<int>{0, 1}) { return "S"; }
+    else if (dir == vector<int>{-1, 0}) { return "W"; }
+    else if (dir == vector<int>{0, -1}) { return "N"; }
+    else { return "X"; }
+}
+
 int codingameMain()
 {
     int width;  // columns in the game grid
@@ -155,17 +168,23 @@ int codingameMain()
         int required_actions_count; // your number of organisms, output an action for each one in any order
         cin >> required_actions_count; cin.ignore();
         Entity *grow_from, *grow_to;
+        string action = "WAIT";
 
         // type of protein we're looking for
         string protein_type = "A";
 
-        if (entities.at("MY_HARVESTER").size() == 0)
+        // growing a HARVESTER if possible (for now only one)
+        if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
         {
-            // for the HARVESTER, find the closest protein_type
             closestOrgan(grow_from, grow_to, 1, protein_type, entities);
-
+            Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
+            Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
+            vector<Node> path = aStar(room, *start, *goal);
+            Node harvester_pos = path[path.size()-2];
+            string direction = faceDirection(harvester_pos, path[path.size()]);
+            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " " + direction;
         }
-        else
+        else if (my_proteins[0] > 0)
         {
             // find the best organ to make
             if (entities.at(protein_type).size() > 0)
@@ -175,22 +194,15 @@ int codingameMain()
             else
             {
                 // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
+                // TODO
             }
+            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " " + "N";
         }
 
         // perform actions
         for (int i = 0; i < required_actions_count; i++)
         {
-            if (my_proteins[0] == 0)
-            {
-                cout << "WAIT" << endl;
-            }
-            else
-            {
-                // grow organ with the chosen organ and protein
-                cout << "GROW " << grow_from->organ_id << " " << grow_to->x << " " << grow_to->y << " BASIC" << endl;
-            }
-        break;
+            cout << action << endl;
         }
     }
 }

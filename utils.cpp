@@ -122,6 +122,12 @@ int distance(const Entity &ent1, const Entity &ent2)
     return (pow(ent1.x - ent2.x, 2) + pow(ent1.y - ent2.y, 2));
 }
 
+// a more accurate (but longer to calcuate) distance based on A*
+int accurateDistance(const Entity &ent1, const Entity &ent2)
+{
+    // TODO
+}
+
 // organ and protein closest to each other (1:my, 0:opp)
 int closestOrgan(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities)
 {
