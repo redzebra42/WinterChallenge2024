@@ -13,6 +13,7 @@
 using namespace std;
 
 // TODO change old euclidian distance to accurateDistance
+// TODO do a 'no touch' list of tiles (for proteins used by a harvester)
 
 // returns if a tile is free
 bool isFree(pair<int, int> tile, vector<vector<Entity*>> room)
@@ -226,42 +227,69 @@ int codingameMain()
         int required_actions_count; // your number of organisms, output an action for each one in any order
         cin >> required_actions_count; cin.ignore();
         Entity *grow_from, *grow_to;
-        string action = "WAIT";
+        queue<string> action_queue;
 
         // type of protein we're looking for
         string protein_type = "A";
 
-        // growing a HARVESTER if possible (for now only one)
-        if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
+        // do an action only if the queue is empty
+        if (action_queue.size() == 0)
         {
-            closestOrgan(grow_from, grow_to, 1, protein_type, entities);
-            Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
-            Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
-            vector<Node> path = aStar(room, *start, *goal);
-            Node harvester_pos = path[path.size()-2];
-            string direction = faceDirection(harvester_pos, path[path.size()-1]);
-            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " HARVESTER " + direction;
-        }
-        else if (my_proteins[0] > 0)
-        {
-            // find the best organ to make
-            if (entities.at(protein_type).size() > 0)
+            // growing a HARVESTER if possible (for now only one)
+            if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
             {
                 closestOrgan(grow_from, grow_to, 1, protein_type, entities);
-                action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " BASIC " + "N";
+                Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
+                Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
+                vector<Node> path = aStar(room, *start, *goal);
+                if (path.size() > 1)
+                {
+                    Node harvester_pos = path[path.size()-2];
+                    string direction = faceDirection(harvester_pos, path[path.size()-1]);
+                    if (path.size() > 2)
+                    {
+                        // grow the basic path before putting the harvester
+                        Node before_harv = path[path.size()-3];
+                        action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(before_harv.x) + " " + to_string(before_harv.y) + " BASIC N");
+                    }
+                    // grow the harvester
+                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " HARVESTER " + direction);
+                }
+                else
+                {
+                    // if the prootein is already neighbouring (could probably be improved by checking if surroudings are free, but too rare)
+                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[0].x) + " " + to_string(path[0].y) + " BASIC N");
+                }
             }
-            else
+            else if (my_proteins[0] > 0)
             {
-                // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
-                pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from);
-                action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N";
+                // find the best organ to make
+                if (entities.at(protein_type).size() > 0)
+                {
+                    closestOrgan(grow_from, grow_to, 1, protein_type, entities);
+                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " BASIC " + "N");
+                }
+                else
+                {
+                    // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
+                    pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from);
+                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N");
+                }
             }
         }
 
         // perform actions
         for (int i = 0; i < required_actions_count; i++)
         {
-            cout << action << endl;
+            if (action_queue.size() > 0)
+            {
+                cout << action_queue.front() << endl;
+                action_queue.pop();
+            }
+            else
+            {
+                cout << "WAIT" << endl;
+            }
         }
     }
 }
@@ -275,45 +303,73 @@ int main(int argc, char **argv)
     vector<vector<Entity*>> room = readInputFromFile(entity_count, "input_room.txt", width, height, my_proteins, opp_proteins, required_actions_count, entities);
     writeRoomFile(entity_count, "input_room_copy.txt", width, height, room, my_proteins, opp_proteins, required_actions_count);
     Entity *grow_from, *grow_to;
-    string action = "WAIT";
+    queue<string> action_queue;
 
     printRoom(room, my_proteins, opp_proteins);
 
     // type of protein we're looking for
     string protein_type = "A";
 
-    // growing a HARVESTER if possible (for now only one)
-    if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
+    // do an action only if the queue is empty
+    if (action_queue.size() == 0)
     {
-        closestOrgan(grow_from, grow_to, 1, protein_type, entities);
-        Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
-        Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
-        vector<Node> path = aStar(room, *start, *goal);
-        Node harvester_pos = path[path.size()-2];
-        string direction = faceDirection(harvester_pos, path[path.size()-1]);
-        action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " HARVESTER " + direction;
-    }
-    else if (my_proteins[0] > 0)
-    {
-        // find the best organ to make
-        if (entities.at(protein_type).size() > 0)
+        // growing a HARVESTER if possible (for now only one)
+        if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
         {
             closestOrgan(grow_from, grow_to, 1, protein_type, entities);
-            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " BASIC " + "N";
+            Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
+            Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
+            vector<Node> path = aStar(room, *start, *goal);
+            if (path.size() > 1)
+            {
+                Node harvester_pos = path[path.size()-2];
+                string direction = faceDirection(harvester_pos, path[path.size()-1]);
+                if (path.size() > 2)
+                {
+                    // grow the basic path before putting the harvester
+                    Node before_harv = path[path.size()-3];
+                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(before_harv.x) + " " + to_string(before_harv.y) + " BASIC N");
+                }
+                // grow the harvester
+                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " HARVESTER " + direction);
+            }
+            else
+            {
+                // if the prootein is already neighbouring (could probably be improved by checking if surroudings are free, but too rare)
+                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[0].x) + " " + to_string(path[0].y) + " BASIC N");
+            }
         }
-        else
+        else if (my_proteins[0] > 0)
         {
-            // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
-            pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from);
-            action = "GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N";
+            // find the best organ to make
+            if (entities.at(protein_type).size() > 0)
+            {
+                closestOrgan(grow_from, grow_to, 1, protein_type, entities);
+                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " BASIC " + "N");
+            }
+            else
+            {
+                // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
+                pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from);
+                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N");
+            }
         }
     }
 
     // perform actions
     for (int i = 0; i < required_actions_count; i++)
     {
-        cout << action << endl;
+        if (action_queue.size() > 0)
+        {
+            cout << action_queue.front() << endl;
+            action_queue.pop();
+        }
+        else
+        {
+            cout << "WAIT" << endl;
+        }
     }
+    
 
     printRoom(room, my_proteins, opp_proteins);
 
