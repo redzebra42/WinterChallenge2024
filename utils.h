@@ -11,7 +11,7 @@ using namespace std;
 
 struct Entity
 {
-    int x, y, id, owner, organ_id, organ_parent_id, organ_root_id;
+    int x, y, owner, organ_id, organ_parent_id, organ_root_id;
     string type, organ_dir;
     Entity() :
         x(0),
