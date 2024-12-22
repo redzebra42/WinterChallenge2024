@@ -68,8 +68,11 @@ string entityToString(Entity *ent);
 // print a room in the terminal
 void printRoom(const vector<vector<Entity*>> &room, vector<int> my_proteins, vector<int> opp_proteins);
 
-// euclidian distance squared (because just used for comparing)
-int distance(const Entity &ent1, const Entity &ent2);
+// Euclidian distance squared (because just used for comparing)
+int euclDistance(Entity *ent1, Entity *ent2);
+
+// Euclidian distance squared (because just used for comparing)
+int euclDistance(pair<int , int> pos1, pair<int, int> ent2);
 
 // a more accurate (but longer to calcuate) distance based on A*
 int accurateDistance(const Entity &ent1, const Entity &ent2);
@@ -109,10 +112,13 @@ pair<int, int> nextEmptySpace(vector<vector<Entity*>> room, map<string, vector<E
 void initEntities(map<string, vector<Entity*>> &entities);
 
 // closest entity to start_ent (returns the euclidian distance squared)
-int closestEntity(Entity &start_ent, Entity *&closest_entity, string entity_type, const map<string, vector<Entity*>> &entities);
+int closestEntity(pair<int, int> start_pos, Entity *&closest_entity, string entity_type, const map<string, vector<Entity*>> &entities);
 
 // turns a pair such as {1, 0} into a direction such as "S"
 string pairToDir(pair<int, int> dir_pair);
+
+// checks if any protein is in the game
+bool proteinLeft(const map<string, vector<Entity*>> &entities);
 
 
 int codingameMain()
@@ -177,7 +183,7 @@ int codingameMain()
             previous_position = pair<int, int>{-1, -1};
 
             // growing a HARVESTER if possible (for now only one)
-            if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
+            if (proteinLeft(entities) && entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
             {
                 closestProtein(grow_from, grow_to, 1, protein_type, entities);
                 Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
@@ -204,7 +210,7 @@ int codingameMain()
                 
                 //check if enemy nearby to grow tentacles
                 Entity *closest_enemy;
-                if (closestEntity(grow_to, closest_enemy, "OPP_ORGAN", entities) == 1)
+                if (closestEntity(grow_to_pos, closest_enemy, "OPP_ORGAN", entities) == 1)
                 {
                     grow_type = "TENTACLE";
                     pair<int, int> direction = pair<int, int>{grow_to->x-grow_from->x, grow_to->y-grow_from->y};
@@ -237,6 +243,12 @@ int codingameMain()
             }
         }
     }
+}
+
+// checks if any protein is in the game
+bool proteinLeft(const map<string, vector<Entity*>> &entities)
+{
+    return entities.at("A").size() > 0 && entities.at("B").size() > 0 && entities.at("C").size() > 0 && entities.at("D").size() > 0;
 }
 
 // turns a pair such as {1, 0} into a direction such as "S"
@@ -493,9 +505,23 @@ void printRoom(const vector<vector<Entity*>> &room, vector<int> my_proteins, vec
 }
 
 // Euclidian distance squared (because just used for comparing)
-int euclDistance(const Entity &ent1, const Entity &ent2)
+int euclDistance(Entity *ent1, Entity *ent2)
 {
-    return (pow(ent1.x - ent2.x, 2) + pow(ent1.y - ent2.y, 2));
+    if (ent1 && ent2)
+    {
+        return (pow(ent1->x - ent2->x, 2) + pow(ent1->y - ent2->y, 2));
+    }
+    else
+    {
+        cerr << "nullptr in eulclDistance not valid" << endl;
+        return 1000;
+    }
+}
+
+// Euclidian distance squared (because just used for comparing)
+int euclDistance(pair<int, int> pos1, pair<int, int> pos2)
+{
+    return (pow(pos1.first - pos2.first, 2) + pow(pos1.second - pos2.second, 2));
 }
 
 // a more accurate (but longer to calcuate) distance based on A*
@@ -507,7 +533,7 @@ int accurateDistance(const Entity &ent1, const Entity &ent2)
 // organ and protein closest to each other (1:my, 0:opp)
 int closestProtein(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities)
 {
-    int dist_min = numeric_limits<int>::max();
+    int dist_min = abs(numeric_limits<int>::max());
     vector<Entity*> organs;
     if (player == 1)
     {
@@ -526,7 +552,7 @@ int closestProtein(Entity *&closest_organ, Entity *&closest_protein, int player,
     {
         for (Entity *protein : proteins)
         {
-            int new_dist = euclDistance(*organ, *protein);
+            int new_dist = euclDistance(organ, protein);
             if (new_dist < dist_min)
             {
                 dist_min = new_dist;
@@ -539,14 +565,14 @@ int closestProtein(Entity *&closest_organ, Entity *&closest_protein, int player,
 }
 
 // closest entity to start_ent (returns the euclidian distance squared)
-int closestEntity(Entity *start_ent, Entity *&closest_entity, string entity_type, const map<string, vector<Entity*>> &entities)
+int closestEntity(pair<int, int> start_pos, Entity *&closest_entity, string entity_type, const map<string, vector<Entity*>> &entities)
 {
-    int dist_min = numeric_limits<int>::max();
+    int dist_min = abs(numeric_limits<int>::max());
        
     vector<Entity*> target_entities = entities.at(entity_type);
     for (Entity *ent : target_entities)
     {
-        int new_dist = euclDistance(*start_ent, *ent);
+        int new_dist = euclDistance(start_pos, pair<int, int>{ent->x, ent->y});
         if (new_dist < dist_min)
         {
             dist_min = new_dist;
