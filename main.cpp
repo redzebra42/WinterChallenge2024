@@ -39,6 +39,24 @@ struct Entity
         organ_root_id(_organ_root_id) {}
 };
 
+// Structure to represent a node in the grid
+struct Node {
+    int x, y;       // Position on the grid
+    float g, h;     // Cost from start (g) and heuristic cost to goal (h)
+    Node* parent;   // Parent node for path reconstruction
+
+    Node(int x, int y, float g, float h, Node* parent = nullptr)
+        : x(x), y(y), g(g), h(h), parent(parent) {}
+
+    // Calculate the total cost f = g + h
+    float f() const { return g + h; }
+
+    // Compare nodes to prioritize the one with the smallest f value
+    bool operator>(const Node& other) const {
+        return f() > other.f();
+    }
+};
+
 // read room input from file
 vector<vector<Entity*>> readInputFromFile(int &entity_count, const string &file_name, int &width, int &height, vector<int> &my_proteins, vector<int> &opp_proteins, int &required_actions_count, map<string, vector<Entity*>> &entities);
 
@@ -59,6 +77,147 @@ int accurateDistance(const Entity &ent1, const Entity &ent2);
 // organ and protein closest to each other (1:my, 0:opp)
 int closestOrgan(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities);
 
+// modifies action to start from pres_pos organ
+string fromPreviousOrgan(const string &action, pair<int, int> prev_pos, const vector<vector<Entity*>> &room);
+
+pair<int, int> actionToPosition(const string &action);
+
+// builds the queue to grow an harvestor
+queue<string> growHarvestor(std::vector<Node> &path, Entity *grow_from);
+
+// appends 2 queues
+void pushQueue(queue<string> &main_queue, queue<string> &to_push_queue);
+
+// returns if a tile is free
+bool isFree(pair<int, int> tile, vector<vector<Entity*>> room);
+
+// Manhattan distance heuristic
+float heuristic(int x1, int y1, int x2, int y2);
+
+// A* algorithm
+vector<Node> aStar(vector<vector<Entity*>> &grid, Node start, Node goal);
+
+void printPath(const vector<Node>& path);
+
+// direction for from_node to face to_node (they need to be side by side)
+string faceDirection(Node from_node, Node to_node);
+
+// return an empty space next to the organ, and {-1, -1} if there isn't one
+pair<int, int> nextEmptySpace(vector<vector<Entity*>> room, map<string, vector<Entity*>> entities, Entity *&from_organ, vector<pair<int, int>> protected_tiles);
+
+//initialise the enities map with empty vectors
+void initEntities(map<string, vector<Entity*>> &entities);
+
+
+int codingameMain()
+{
+    int width;  // columns in the game grid
+    int height; // rows in the game grid
+    cin >> width >> height; cin.ignore();
+    vector<vector<Entity*>> room(height, vector<Entity*>(width, nullptr));
+    queue<string> action_queue;
+    Entity *previous_entity;
+    pair<int, int> previous_position =  pair<int, int>{-1, -1};
+    vector<pair<int, int>> protected_tiles;
+
+    // game loop
+    while (1) {
+        int entity_count;
+        cin >> entity_count; cin.ignore();
+        map<string, vector<Entity*>> entities;
+        initEntities(entities);
+        for (int i = 0; i < entity_count; i++)
+        {
+            int x;
+            int y;            // grid coordinate
+            string type;      // 0 WALL, 1 ROOT, 2 BASIC, 3 TENTACLE, 4 HARVESTER, 5 SPORER, 6 A, 7 B, 8 C, 9 D
+            int owner;        // 1 if your organ, 0 if enemy organ, -1 if neither
+            int organ_id;     // id of this entity if it's an organ, 0 otherwise
+            string organ_dir; // N,E,S,W or X if not an organ
+            int organ_parent_id;
+            int organ_root_id;
+            cin >> x >> y >> type >> owner >> organ_id >> organ_dir >> organ_parent_id >> organ_root_id; cin.ignore();
+            Entity *new_entity = new Entity(x, y, type, owner, organ_id, organ_dir, organ_parent_id, organ_root_id);
+            if (owner == 1)
+            {
+                entities["MY_ORGAN"].push_back(new_entity);
+                entities["MY_" + type].push_back(new_entity);
+            }
+            else if (owner == 0)
+            {
+                entities["OPP_ORGAN"].push_back(new_entity);
+                entities["OPP_" + type].push_back(new_entity);
+            }
+            else
+            {
+                entities[type].push_back(new_entity);
+            }
+            room[y][x] = new_entity;
+        }
+        vector<int> my_proteins(4, 0), opp_proteins(4, 0);
+        cin >> my_proteins[0] >> my_proteins[1] >> my_proteins[2] >> my_proteins[3]; cin.ignore();     // your protein stock
+        cin >> opp_proteins[0] >> opp_proteins[1] >> opp_proteins[2] >> opp_proteins[3]; cin.ignore(); // opponent's protein stock
+        int required_actions_count; // your number of organisms, output an action for each one in any order
+        cin >> required_actions_count; cin.ignore();
+        Entity *grow_from, *grow_to;
+
+        // type of protein we're looking for
+        string protein_type = "A";
+
+        // do an action only if the queue is empty
+        if (action_queue.size() == 0)
+        {
+            // reset previous_position (path is finished)
+            previous_position = pair<int, int>{-1, -1};
+
+            // growing a HARVESTER if possible (for now only one)
+            if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
+            {
+                closestOrgan(grow_from, grow_to, 1, protein_type, entities);
+                Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
+                Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
+                vector<Node> path = aStar(room, *start, *goal);
+                protected_tiles.push_back(pair<int, int>{goal->x, goal->y});
+                if (path.size() > 1)
+                {
+                    queue<string> herv_queue = growHarvestor(path, grow_from);
+                    pushQueue(action_queue, herv_queue);
+                }
+                else
+                {
+                    // if the prootein is already neighbouring (could probably be improved by checking if surroudings are free, but too rare)
+                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[0].x) + " " + to_string(path[0].y) + " BASIC N");
+                }
+            }
+            else if (my_proteins[0] > 0)
+            {
+                // if there are no more C or D proteins, grow in any empty space (preferably closer to the enemy to block him before)
+                pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from, protected_tiles);
+                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N");
+            }
+        }
+
+        // perform actions
+        for (int i = 0; i < required_actions_count; i++)
+        {
+            if (action_queue.size() > 0)
+            {
+                string curr_action = action_queue.front();
+                if (previous_position != pair<int, int>{-1, -1})
+                {
+                    curr_action = fromPreviousOrgan(curr_action, previous_position, room);
+                }
+                cout << curr_action << endl;
+                previous_position = actionToPosition(curr_action);
+                action_queue.pop();
+            }
+            else
+            {
+                cout << "WAIT" << endl;
+            }
+        }
+    }
+}
 
 // returns if a tile is free
 bool isFree(pair<int, int> tile, vector<vector<Entity*>> room)
@@ -72,28 +231,6 @@ bool isFree(pair<int, int> tile, vector<vector<Entity*>> room)
         return true;
     }
 }
-
-/**
- * A* algorithme (thanks ChatGPT)
- **/
-
-// Structure to represent a node in the grid
-struct Node {
-    int x, y;       // Position on the grid
-    float g, h;     // Cost from start (g) and heuristic cost to goal (h)
-    Node* parent;   // Parent node for path reconstruction
-
-    Node(int x, int y, float g, float h, Node* parent = nullptr)
-        : x(x), y(y), g(g), h(h), parent(parent) {}
-
-    // Calculate the total cost f = g + h
-    float f() const { return g + h; }
-
-    // Compare nodes to prioritize the one with the smallest f value
-    bool operator>(const Node& other) const {
-        return f() > other.f();
-    }
-};
 
 // Manhattan distance heuristic
 float heuristic(int x1, int y1, int x2, int y2) {
@@ -223,121 +360,6 @@ void initEntities(map<string, vector<Entity*>> &entities)
                                       "C",
                                       "D"})
         entities[type] = vector<Entity*>{};
-}
-
-string fromPreviousOrgan(const string &action, pair<int, int> prev_pos, const vector<vector<Entity*>> &room);
-pair<int, int> actionToPosition(const string &action);
-queue<string> growHarvestor(std::vector<Node> &path, Entity *grow_from);
-void pushQueue(queue<string> &main_queue, queue<string> &to_push_queue);
-
-int codingameMain()
-{
-    int width;  // columns in the game grid
-    int height; // rows in the game grid
-    cin >> width >> height; cin.ignore();
-    vector<vector<Entity*>> room(height, vector<Entity*>(width, nullptr));
-    queue<string> action_queue;
-    Entity *previous_entity;
-    pair<int, int> previous_position =  pair<int, int>{-1, -1};
-    vector<pair<int, int>> protected_tiles;
-
-    // game loop
-    while (1) {
-        int entity_count;
-        cin >> entity_count; cin.ignore();
-        map<string, vector<Entity*>> entities;
-        initEntities(entities);
-        for (int i = 0; i < entity_count; i++)
-        {
-            int x;
-            int y;            // grid coordinate
-            string type;      // 0 WALL, 1 ROOT, 2 BASIC, 3 TENTACLE, 4 HARVESTER, 5 SPORER, 6 A, 7 B, 8 C, 9 D
-            int owner;        // 1 if your organ, 0 if enemy organ, -1 if neither
-            int organ_id;     // id of this entity if it's an organ, 0 otherwise
-            string organ_dir; // N,E,S,W or X if not an organ
-            int organ_parent_id;
-            int organ_root_id;
-            cin >> x >> y >> type >> owner >> organ_id >> organ_dir >> organ_parent_id >> organ_root_id; cin.ignore();
-            Entity *new_entity = new Entity(x, y, type, owner, organ_id, organ_dir, organ_parent_id, organ_root_id);
-            if (owner == 1)
-            {
-                entities["MY_ORGAN"].push_back(new_entity);
-                entities["MY_" + type].push_back(new_entity);
-            }
-            else if (owner == 0)
-            {
-                entities["OPP_ORGAN"].push_back(new_entity);
-                entities["OPP_" + type].push_back(new_entity);
-            }
-            else
-            {
-                entities[type].push_back(new_entity);
-            }
-            room[y][x] = new_entity;
-        }
-        vector<int> my_proteins(4, 0), opp_proteins(4, 0);
-        cin >> my_proteins[0] >> my_proteins[1] >> my_proteins[2] >> my_proteins[3]; cin.ignore();     // your protein stock
-        cin >> opp_proteins[0] >> opp_proteins[1] >> opp_proteins[2] >> opp_proteins[3]; cin.ignore(); // opponent's protein stock
-        int required_actions_count; // your number of organisms, output an action for each one in any order
-        cin >> required_actions_count; cin.ignore();
-        Entity *grow_from, *grow_to;
-
-        // type of protein we're looking for
-        string protein_type = "A";
-
-        // do an action only if the queue is empty
-        if (action_queue.size() == 0)
-        {
-            // reset previous_position (path is finished)
-            previous_position = pair<int, int>{-1, -1};
-
-            // growing a HARVESTER if possible (for now only one)
-            if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
-            {
-                closestOrgan(grow_from, grow_to, 1, protein_type, entities);
-                Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
-                Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
-                vector<Node> path = aStar(room, *start, *goal);
-                protected_tiles.push_back(pair<int, int>{goal->x, goal->y});
-                if (path.size() > 1)
-                {
-                    queue<string> herv_queue = growHarvestor(path, grow_from);
-                    pushQueue(action_queue, herv_queue);
-                }
-                else
-                {
-                    // if the prootein is already neighbouring (could probably be improved by checking if surroudings are free, but too rare)
-                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[0].x) + " " + to_string(path[0].y) + " BASIC N");
-                }
-            }
-            else if (my_proteins[0] > 0)
-            {
-                // if there are no more C or D proteins, grow in any empty space (preferably closer to the enemy to block him before)
-                pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from, protected_tiles);
-                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N");
-            }
-        }
-
-        // perform actions
-        for (int i = 0; i < required_actions_count; i++)
-        {
-            if (action_queue.size() > 0)
-            {
-                string curr_action = action_queue.front();
-                if (previous_position != pair<int, int>{-1, -1})
-                {
-                    curr_action = fromPreviousOrgan(curr_action, previous_position, room);
-                }
-                cout << curr_action << endl;
-                previous_position = actionToPosition(curr_action);
-                action_queue.pop();
-            }
-            else
-            {
-                cout << "WAIT" << endl;
-            }
-        }
-    }
 }
 
 string fromPreviousOrgan(const string &action, pair<int, int> prev_pos, const vector<vector<Entity*>> &room)
