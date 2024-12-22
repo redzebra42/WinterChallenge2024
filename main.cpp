@@ -213,7 +213,7 @@ int codingameMain()
                 if (closestEntity(grow_to_pos, closest_enemy, "OPP_ORGAN", entities) == 1)
                 {
                     grow_type = "TENTACLE";
-                    pair<int, int> direction = pair<int, int>{grow_to->x-grow_from->x, grow_to->y-grow_from->y};
+                    pair<int, int> direction = pair<int, int>{closest_enemy->x-grow_to_pos.first, closest_enemy->y-grow_to_pos.second};
                     str_dir = pairToDir(direction);
                     protected_tiles.push_back(pair<int, int>{grow_to_pos.first + direction.first, grow_to_pos.first + direction.first});
                 }
