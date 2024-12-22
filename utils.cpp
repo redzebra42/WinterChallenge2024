@@ -119,7 +119,7 @@ void printRoom(const vector<vector<Entity*>> &room, vector<int> my_proteins, vec
 }
 
 // Euclidian distance squared (because just used for comparing)
-int distance(const Entity &ent1, const Entity &ent2)
+int euclDistance(const Entity &ent1, const Entity &ent2)
 {
     return (pow(ent1.x - ent2.x, 2) + pow(ent1.y - ent2.y, 2));
 }
@@ -152,8 +152,8 @@ int closestOrgan(Entity *&closest_organ, Entity *&closest_protein, int player, c
     {
         for (Entity *protein : proteins)
         {
-            int new_dist = distance(organ, protein);
-            if ( new_dist < dist_min)
+            int new_dist = euclDistance(*organ, *protein);
+            if (new_dist < dist_min)
             {
                 dist_min = new_dist;
                 closest_organ = organ;

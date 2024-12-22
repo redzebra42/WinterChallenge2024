@@ -249,8 +249,10 @@ int codingameMain()
                     if (path.size() > 2)
                     {
                         // grow the basic path before putting the harvester
-                        Node before_harv = path[path.size()-3];
-                        action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(before_harv.x) + " " + to_string(before_harv.y) + " BASIC N");
+                        for (int i=1; i<path.size()-2; i++)
+                        {
+                            action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[i].x) + " " + to_string(path[i].y) + " BASIC N");
+                        }
                     }
                     // grow the harvester
                     action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " HARVESTER " + direction);
@@ -320,6 +322,8 @@ int main(int argc, char **argv)
             Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
             Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
             vector<Node> path = aStar(room, *start, *goal);
+            cout << start->x << " " << start->y << "  " << goal->x << " " << goal->y << endl;
+            printPath(path);
             if (path.size() > 1)
             {
                 Node harvester_pos = path[path.size()-2];
@@ -327,8 +331,10 @@ int main(int argc, char **argv)
                 if (path.size() > 2)
                 {
                     // grow the basic path before putting the harvester
-                    Node before_harv = path[path.size()-3];
-                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(before_harv.x) + " " + to_string(before_harv.y) + " BASIC N");
+                    for (int i=1; i<path.size()-2; i++)
+                    {
+                        action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[i].x) + " " + to_string(path[i].y) + " BASIC N");
+                    }
                 }
                 // grow the harvester
                 action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " HARVESTER " + direction);
