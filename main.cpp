@@ -186,6 +186,7 @@ int codingameMain()
     int height; // rows in the game grid
     cin >> width >> height; cin.ignore();
     vector<vector<Entity*>> room(height, vector<Entity*>(width, nullptr));
+    queue<string> action_queue;
 
     // game loop
     while (1) {
@@ -227,7 +228,6 @@ int codingameMain()
         int required_actions_count; // your number of organisms, output an action for each one in any order
         cin >> required_actions_count; cin.ignore();
         Entity *grow_from, *grow_to;
-        queue<string> action_queue;
 
         // type of protein we're looking for
         string protein_type = "A";
