@@ -14,7 +14,7 @@
 using namespace std;
 
 // TODO change old euclidian distance to accurateDistance
-// TODO do a 'no touch' list of tiles (for proteins used by a harvester)
+// TODO do a 'protected_tiles' list of tiles (for proteins used by a harvester)
 // TODO refactor code for function declaration ...
 
 // returns if a tile is free
@@ -141,7 +141,7 @@ string faceDirection(Node from_node, Node to_node)
 }
 
 // return an empty space next to the organ, and {-1, -1} if there isn't one
-pair<int, int> nextEmptySpace(vector<vector<Entity*>> room, map<string, vector<Entity*>> entities, Entity *&from_organ)
+pair<int, int> nextEmptySpace(vector<vector<Entity*>> room, map<string, vector<Entity*>> entities, Entity *&from_organ, vector<pair<int, int>> protected_tiles)
 {
     vector<pair<int, int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
     for (Entity *organ : entities.at("MY_ORGAN"))
@@ -149,7 +149,7 @@ pair<int, int> nextEmptySpace(vector<vector<Entity*>> room, map<string, vector<E
         for (const pair<int, int> dir : directions)
         {
             pair<int, int> new_tile = {organ->x+dir.first, organ->y+dir.second};
-            if (isFree(new_tile, room))
+            if (isFree(new_tile, room) && count(protected_tiles.begin(), protected_tiles.end(), new_tile) == 0)
             {
                 from_organ = organ;
                 return new_tile;
@@ -182,15 +182,10 @@ void initEntities(map<string, vector<Entity*>> &entities)
         entities[type] = vector<Entity*>{};
 }
 
-string buildPath(vector<Node> path, vector<vector<Entity*>> room)
-{
-
-}
-
 string fromPreviousOrgan(const string &action, pair<int, int> prev_pos, const vector<vector<Entity*>> &room);
 pair<int, int> actionToPosition(const string &action);
 queue<string> growHarvestor(std::vector<Node> &path, Entity *grow_from);
-void pushQueue(queue<string> queue);
+void pushQueue(queue<string> &main_queue, queue<string> &to_push_queue);
 
 int codingameMain()
 {
@@ -201,6 +196,7 @@ int codingameMain()
     queue<string> action_queue;
     Entity *previous_entity;
     pair<int, int> previous_position =  pair<int, int>{-1, -1};
+    vector<pair<int, int>> protected_tiles;
 
     // game loop
     while (1) {
@@ -249,6 +245,9 @@ int codingameMain()
         // do an action only if the queue is empty
         if (action_queue.size() == 0)
         {
+            // reset previous_position (path is finished)
+            previous_position = pair<int, int>{-1, -1};
+
             // growing a HARVESTER if possible (for now only one)
             if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
             {
@@ -256,6 +255,7 @@ int codingameMain()
                 Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
                 Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
                 vector<Node> path = aStar(room, *start, *goal);
+                protected_tiles.push_back(pair<int, int>{goal->x, goal->y});
                 if (path.size() > 1)
                 {
                     queue<string> herv_queue = growHarvestor(path, grow_from);
@@ -269,18 +269,9 @@ int codingameMain()
             }
             else if (my_proteins[0] > 0)
             {
-                // find the best organ to make
-                if (entities.at(protein_type).size() > 0)
-                {
-                    closestOrgan(grow_from, grow_to, 1, protein_type, entities);
-                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " BASIC " + "N");
-                }
-                else
-                {
-                    // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
-                    pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from);
-                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N");
-                }
+                // if there are no more C or D proteins, grow in any empty space (preferably closer to the enemy to block him before)
+                pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from, protected_tiles);
+                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N");
             }
         }
 
@@ -338,7 +329,7 @@ pair<int, int> actionToPosition(const string &action)
     return pair<int, int>{x, y};
 }
 
-queue<string> growHarvestor(std::vector<Node> &path, const Entity *&grow_from)
+queue<string> growHarvestor(std::vector<Node> &path, Entity *grow_from)
 {
     queue<string> act_queue;
     Node harvester_pos = path[path.size() - 2];
@@ -375,6 +366,9 @@ int main(int argc, char **argv)
     writeRoomFile(entity_count, "input_room_copy.txt", width, height, room, my_proteins, opp_proteins, required_actions_count);
     Entity *grow_from, *grow_to;
     queue<string> action_queue;
+    Entity *previous_entity;
+    pair<int, int> previous_position =  pair<int, int>{-1, -1};
+    vector<pair<int, int>> protected_tiles;
 
     printRoom(room, my_proteins, opp_proteins);
 
@@ -425,7 +419,7 @@ int main(int argc, char **argv)
             else
             {
                 // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
-                pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from);
+                pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from, protected_tiles);
                 action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N");
             }
         }
