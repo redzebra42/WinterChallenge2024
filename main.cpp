@@ -7,6 +7,7 @@
 #include <cmath>
 #include <queue>
 #include <unordered_map>
+#include <sstream>
 
 #include "utils.h"
 
@@ -14,6 +15,7 @@ using namespace std;
 
 // TODO change old euclidian distance to accurateDistance
 // TODO do a 'no touch' list of tiles (for proteins used by a harvester)
+// TODO refactor code for function declaration ...
 
 // returns if a tile is free
 bool isFree(pair<int, int> tile, vector<vector<Entity*>> room)
@@ -180,6 +182,16 @@ void initEntities(map<string, vector<Entity*>> &entities)
         entities[type] = vector<Entity*>{};
 }
 
+string buildPath(vector<Node> path, vector<vector<Entity*>> room)
+{
+
+}
+
+string fromPreviousOrgan(const string &action, pair<int, int> prev_pos, const vector<vector<Entity*>> &room);
+pair<int, int> actionToPosition(const string &action);
+queue<string> growHarvestor(std::vector<Node> &path, Entity *grow_from);
+void pushQueue(queue<string> queue);
+
 int codingameMain()
 {
     int width;  // columns in the game grid
@@ -187,6 +199,8 @@ int codingameMain()
     cin >> width >> height; cin.ignore();
     vector<vector<Entity*>> room(height, vector<Entity*>(width, nullptr));
     queue<string> action_queue;
+    Entity *previous_entity;
+    pair<int, int> previous_position =  pair<int, int>{-1, -1};
 
     // game loop
     while (1) {
@@ -244,18 +258,8 @@ int codingameMain()
                 vector<Node> path = aStar(room, *start, *goal);
                 if (path.size() > 1)
                 {
-                    Node harvester_pos = path[path.size()-2];
-                    string direction = faceDirection(harvester_pos, path[path.size()-1]);
-                    if (path.size() > 2)
-                    {
-                        // grow the basic path before putting the harvester
-                        for (int i=1; i<path.size()-2; i++)
-                        {
-                            action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[i].x) + " " + to_string(path[i].y) + " BASIC N");
-                        }
-                    }
-                    // grow the harvester
-                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " HARVESTER " + direction);
+                    queue<string> herv_queue = growHarvestor(path, grow_from);
+                    pushQueue(action_queue, herv_queue);
                 }
                 else
                 {
@@ -285,7 +289,13 @@ int codingameMain()
         {
             if (action_queue.size() > 0)
             {
-                cout << action_queue.front() << endl;
+                string curr_action = action_queue.front();
+                if (previous_position != pair<int, int>{-1, -1})
+                {
+                    curr_action = fromPreviousOrgan(curr_action, previous_position, room);
+                }
+                cout << curr_action << endl;
+                previous_position = actionToPosition(curr_action);
                 action_queue.pop();
             }
             else
@@ -293,6 +303,65 @@ int codingameMain()
                 cout << "WAIT" << endl;
             }
         }
+    }
+}
+
+string fromPreviousOrgan(const string &action, pair<int, int> prev_pos, const vector<vector<Entity*>> &room)
+{
+    string new_action;
+    stringstream act_stream(action);
+    string tmp;
+    act_stream >> tmp; // action type
+    new_action = tmp + " ";
+    act_stream >> tmp; // id
+    new_action += to_string(room[prev_pos.second][prev_pos.first]->organ_id) + " ";
+    act_stream >> tmp; // x
+    new_action += tmp + " ";
+    act_stream >> tmp; // y
+    new_action += tmp + " ";
+    act_stream >> tmp; // organ type
+    new_action += tmp + " ";
+    act_stream >> tmp; // direction
+    new_action += tmp;
+    return new_action;
+}
+
+pair<int, int> actionToPosition(const string &action)
+{
+    stringstream act_stream(action);
+    int x, y;
+    string tmp;
+    act_stream >> tmp; // action type
+    act_stream >> tmp; // id
+    act_stream >> x;   // x
+    act_stream >> y;   // y
+    return pair<int, int>{x, y};
+}
+
+queue<string> growHarvestor(std::vector<Node> &path, const Entity *&grow_from)
+{
+    queue<string> act_queue;
+    Node harvester_pos = path[path.size() - 2];
+    string direction = faceDirection(harvester_pos, path[path.size() - 1]);
+    if (path.size() > 2)
+    {
+        // grow the basic path before putting the harvester
+        for (int i = 1; i < path.size() - 2; i++)
+        {
+            act_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[i].x) + " " + to_string(path[i].y) + " BASIC N");
+        }
+    }
+    // grow the harvester
+    act_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " HARVESTER " + direction);
+    return act_queue;
+}
+
+void pushQueue(queue<string> &main_queue, queue<string> &to_push_queue)
+{
+    while (to_push_queue.size() > 0)
+    {
+        main_queue.push(to_push_queue.front());
+        to_push_queue.pop();
     }
 }
 
