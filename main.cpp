@@ -210,10 +210,11 @@ int codingameMain()
                 
                 //check if enemy nearby to grow tentacles
                 Entity *closest_enemy;
-                if (closestEntity(grow_to_pos, closest_enemy, "OPP_ORGAN", entities) == 1)
+                int dist = closestEntity(grow_to_pos, closest_enemy, "OPP_ORGAN", entities);
+                if (dist <= 4)
                 {
                     grow_type = "TENTACLE";
-                    pair<int, int> direction = pair<int, int>{closest_enemy->x-grow_to_pos.first, closest_enemy->y-grow_to_pos.second};
+                    pair<int, int> direction = pair<int, int>{(closest_enemy->x-grow_to_pos.first)/sqrt(dist), (closest_enemy->y-grow_to_pos.second)/sqrt(dist)};
                     str_dir = pairToDir(direction);
                     protected_tiles.push_back(pair<int, int>{grow_to_pos.first + direction.first, grow_to_pos.first + direction.first});
                 }
