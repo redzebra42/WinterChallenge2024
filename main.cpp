@@ -75,7 +75,7 @@ int distance(const Entity &ent1, const Entity &ent2);
 int accurateDistance(const Entity &ent1, const Entity &ent2);
 
 // organ and protein closest to each other (1:my, 0:opp)
-int closestOrgan(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities);
+int closestProtein(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities);
 
 // modifies action to start from pres_pos organ
 string fromPreviousOrgan(const string &action, pair<int, int> prev_pos, const vector<vector<Entity*>> &room);
@@ -107,6 +107,12 @@ pair<int, int> nextEmptySpace(vector<vector<Entity*>> room, map<string, vector<E
 
 //initialise the enities map with empty vectors
 void initEntities(map<string, vector<Entity*>> &entities);
+
+// closest entity to start_ent (returns the euclidian distance squared)
+int closestEntity(Entity &start_ent, Entity *&closest_entity, string entity_type, const map<string, vector<Entity*>> &entities);
+
+// turns a pair such as {1, 0} into a direction such as "S"
+string pairToDir(pair<int, int> dir_pair);
 
 
 int codingameMain()
@@ -173,27 +179,41 @@ int codingameMain()
             // growing a HARVESTER if possible (for now only one)
             if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
             {
-                closestOrgan(grow_from, grow_to, 1, protein_type, entities);
+                closestProtein(grow_from, grow_to, 1, protein_type, entities);
                 Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
                 Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
                 vector<Node> path = aStar(room, *start, *goal);
                 protected_tiles.push_back(pair<int, int>{goal->x, goal->y});
                 if (path.size() > 1)
                 {
-                    queue<string> herv_queue = growHarvestor(path, grow_from);
-                    pushQueue(action_queue, herv_queue);
+                    queue<string> harv_queue = growHarvestor(path, grow_from);
+                    pushQueue(action_queue, harv_queue);
                 }
                 else
                 {
                     // if the prootein is already neighbouring (could probably be improved by checking if surroudings are free, but too rare)
-                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[0].x) + " " + to_string(path[0].y) + " BASIC N");
+                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[0].x) + " " + to_string(path[0].y) + " BASIC " +  "N");
                 }
             }
             else if (my_proteins[0] > 0)
             {
                 // if there are no more C or D proteins, grow in any empty space (preferably closer to the enemy to block him before)
+                string grow_type = "BASIC";
+                string str_dir = "N";
                 pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from, protected_tiles);
-                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N");
+                
+                //check if enemy nearby to grow tentacles
+                Entity *closest_enemy;
+                if (closestEntity(grow_to, closest_enemy, "OPP_ORGAN", entities) == 1)
+                {
+                    grow_type = "TENTACLE";
+                    pair<int, int> direction = pair<int, int>{grow_to->x-grow_from->x, grow_to->y-grow_from->y};
+                    str_dir = pairToDir(direction);
+                    protected_tiles.push_back(pair<int, int>{grow_to_pos.first + direction.first, grow_to_pos.first + direction.first});
+                }
+
+                // grow the organ
+                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " " + grow_type + " " + str_dir);
             }
         }
 
@@ -216,6 +236,20 @@ int codingameMain()
                 cout << "WAIT" << endl;
             }
         }
+    }
+}
+
+// turns a pair such as {1, 0} into a direction such as "S"
+string pairToDir(pair<int, int> dir_pair)
+{
+    if (dir_pair == pair<int, int>{1, 0}) { return "E"; }
+    else if (dir_pair == pair<int, int>{-1, 0}) { return "W"; }
+    else if (dir_pair == pair<int, int>{0, 1}) { return "S"; }
+    else if (dir_pair == pair<int, int>{0, -1}) { return "N"; }
+    else 
+    {
+        cerr << "the given direction pair isn't correct" << endl;
+        return "X";
     }
 }
 
@@ -471,7 +505,7 @@ int accurateDistance(const Entity &ent1, const Entity &ent2)
 }
 
 // organ and protein closest to each other (1:my, 0:opp)
-int closestOrgan(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities)
+int closestProtein(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities)
 {
     int dist_min = numeric_limits<int>::max();
     vector<Entity*> organs;
@@ -504,6 +538,23 @@ int closestOrgan(Entity *&closest_organ, Entity *&closest_protein, int player, c
     return dist_min;
 }
 
+// closest entity to start_ent (returns the euclidian distance squared)
+int closestEntity(Entity *start_ent, Entity *&closest_entity, string entity_type, const map<string, vector<Entity*>> &entities)
+{
+    int dist_min = numeric_limits<int>::max();
+       
+    vector<Entity*> target_entities = entities.at(entity_type);
+    for (Entity *ent : target_entities)
+    {
+        int new_dist = euclDistance(*start_ent, *ent);
+        if (new_dist < dist_min)
+        {
+            dist_min = new_dist;
+            closest_entity = ent;
+        }
+    }
+    return dist_min;
+}
 
 int main(int argc, char **argv)
 {
@@ -530,7 +581,7 @@ int main(int argc, char **argv)
         // growing a HARVESTER if possible (for now only one)
         if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
         {
-            closestOrgan(grow_from, grow_to, 1, protein_type, entities);
+            closestProtein(grow_from, grow_to, 1, protein_type, entities);
             Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
             Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
             vector<Node> path = aStar(room, *start, *goal);
@@ -562,7 +613,7 @@ int main(int argc, char **argv)
             // find the best organ to make
             if (entities.at(protein_type).size() > 0)
             {
-                closestOrgan(grow_from, grow_to, 1, protein_type, entities);
+                closestProtein(grow_from, grow_to, 1, protein_type, entities);
                 action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " BASIC " + "N");
             }
             else
