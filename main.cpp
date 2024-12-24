@@ -120,6 +120,9 @@ string pairToDir(pair<int, int> dir_pair);
 // checks if any protein is in the game
 bool proteinLeft(const map<string, vector<Entity*>> &entities);
 
+// checks if sporer is needed, and if so changes sporer_pos, spore_pos and dir
+bool needSporer(Entity *closest_organ, Entity *closest_protein, string &dir, pair<int, int> &sporer_pos, pair<int, int> &spore_pos, const vector<vector<Entity*>> &room);
+
 
 int codingameMain()
 {
@@ -203,20 +206,37 @@ int codingameMain()
             }
             else if (my_proteins[0] > 0)
             {
-                // if there are no more C or D proteins, grow in any empty space (preferably closer to the enemy to block him before)
+                pair<int, int> grow_to_pos;
                 string grow_type = "BASIC";
                 string str_dir = "N";
-                pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from, protected_tiles);
-                
-                //check if enemy nearby to grow tentacles
-                Entity *closest_enemy;
-                int dist = closestEntity(grow_to_pos, closest_enemy, "OPP_ORGAN", entities);
-                if (dist <= 4)
+
+                // if there are still 2B, 2D, 1A, 1C, at least and closest protien is far, then grow a sporer
+                if (my_proteins[1] >= 2 && my_proteins[2] >= 1 && my_proteins[3] >= 2)
                 {
-                    grow_type = "TENTACLE";
-                    pair<int, int> direction = pair<int, int>{(closest_enemy->x-grow_to_pos.first)/sqrt(dist), (closest_enemy->y-grow_to_pos.second)/sqrt(dist)};
-                    str_dir = pairToDir(direction);
-                    protected_tiles.push_back(pair<int, int>{grow_to_pos.first + direction.first, grow_to_pos.first + direction.first});
+                    Entity *closest_organ, *closest_protein;
+                    pair<int, int> sporer_position, spore_position;
+                    int dist = closestProtein(closest_organ, closest_protein, 1, protein_type, entities);
+                    if (needSporer(closest_organ, closest_protein, str_dir, sporer_position, spore_position, room))
+                    {
+                        action_queue.push("GROW " + to_string(closest_organ->organ_id) + " " + to_string(sporer_position.first) + " " + to_string(sporer_position.second) + " SPORER " + str_dir);
+                        action_queue.push("SPORE 0 " + to_string(spore_position.first) + " " + to_string(spore_position.second));
+                    }
+                }
+                else
+                {
+                    // if there are no more C or D proteins, grow in any empty space (preferably closer to the enemy to block him before)
+                    grow_to_pos = nextEmptySpace(room, entities, grow_from, protected_tiles);
+                    
+                    //check if enemy nearby to grow tentacles
+                    Entity *closest_enemy;
+                    int dist = closestEntity(grow_to_pos, closest_enemy, "OPP_ORGAN", entities);
+                    if (dist <= 4)
+                    {
+                        grow_type = "TENTACLE";
+                        pair<int, int> direction = pair<int, int>{(closest_enemy->x-grow_to_pos.first)/sqrt(dist), (closest_enemy->y-grow_to_pos.second)/sqrt(dist)};
+                        str_dir = pairToDir(direction);
+                        protected_tiles.push_back(pair<int, int>{grow_to_pos.first + direction.first, grow_to_pos.first + direction.first});
+                    }
                 }
 
                 // grow the organ
@@ -244,6 +264,53 @@ int codingameMain()
             }
         }
     }
+}
+
+// checks if sporer is needed, and if so changes sporer_pos, spore_pos and dir
+bool needSporer(Entity *closest_organ, Entity *closest_protein, string &dir, pair<int, int> &sporer_pos, pair<int, int> &spore_pos, const vector<vector<Entity*>> &room)
+{
+    bool res;
+    int dist_x = closest_protein->x - closest_organ->x;
+    int dist_y = closest_protein->y - closest_organ->y;
+    res = abs(dist_x) > 5 && abs(dist_y) > 5;
+    if (res)
+    {
+        if (abs(dist_x) >= abs(dist_y))
+        {
+            int sign_x = (dist_x > 0) - (dist_x < 0);
+
+            // the tile for the sporer should be free of my_organ type, but check for other
+            if (isFree(pair<int, int>{closest_organ->x + sign_x, closest_organ->y}, room))
+            {
+                sporer_pos = pair<int, int>{closest_organ->x + sign_x, closest_organ->y};
+                spore_pos = pair<int, int>{closest_protein->x - sign_x, closest_organ->y};
+                dir = pairToDir(pair<int, int>{sign_x, 0});
+            }
+            else
+            {
+                // if space not free, abort
+                res = false;
+            }
+        }
+        else
+        {
+            int sign_y = (dist_y > 0) - (dist_y < 0);
+
+            // the tile for the sporer should be free of my_organ type, but check for other
+            if (isFree(pair<int, int>{closest_organ->x, closest_organ->y + sign_y}, room))
+            {
+                sporer_pos = pair<int, int>{closest_organ->x, closest_organ->y + sign_y};
+                spore_pos = pair<int, int>{closest_organ->x, closest_protein->y - sign_y};
+                dir = pairToDir(pair<int, int>{0, sign_y});
+            }
+            else
+            {
+                // if space not free, abort
+                res = false;
+            }
+        }
+    }
+    return res;
 }
 
 // checks if any protein is in the game
@@ -413,19 +480,22 @@ string fromPreviousOrgan(const string &action, pair<int, int> prev_pos, const ve
 {
     string new_action;
     stringstream act_stream(action);
-    string tmp;
-    act_stream >> tmp; // action type
-    new_action = tmp + " ";
+    string tmp, action_type;
+    act_stream >> action_type; // action type
+    new_action = action_type + " ";
     act_stream >> tmp; // id
     new_action += to_string(room[prev_pos.second][prev_pos.first]->organ_id) + " ";
     act_stream >> tmp; // x
     new_action += tmp + " ";
     act_stream >> tmp; // y
-    new_action += tmp + " ";
-    act_stream >> tmp; // organ type
-    new_action += tmp + " ";
-    act_stream >> tmp; // direction
-    new_action += tmp;
+    if (action_type == "GROW")
+    {
+        new_action += tmp + " ";
+        act_stream >> tmp; // organ type
+        new_action += tmp + " ";
+        act_stream >> tmp; // direction
+        new_action += tmp;
+    }
     return new_action;
 }
 
