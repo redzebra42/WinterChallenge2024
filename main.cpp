@@ -11,9 +11,7 @@
 
 using namespace std;
 
-// TODO change old euclidian distance to accurateDistance
-// TODO do a 'protected_tiles' list of tiles (for proteins used by a harvester)
-// TODO refactor code for function declaration ...
+// TODO fix bug that makes me randomly lose the games...
 
 struct Entity
 {
@@ -78,7 +76,7 @@ int euclDistance(pair<int , int> pos1, pair<int, int> ent2);
 int accurateDistance(const Entity &ent1, const Entity &ent2);
 
 // organ and protein closest to each other (1:my, 0:opp)
-int closestProtein(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities);
+int closestProtein(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities, vector<pair<int, int>> protected_tiles);
 
 // modifies action to start from pres_pos organ
 string fromPreviousOrgan(const string &action, pair<int, int> prev_pos, const vector<vector<Entity*>> &room);
@@ -116,6 +114,9 @@ int closestEntity(pair<int, int> start_pos, Entity *&closest_entity, string enti
 
 // turns a pair such as {1, 0} into a direction such as "S"
 string pairToDir(pair<int, int> dir_pair);
+
+// turns a direction such as "S" into a pair such as {1, 0}
+pair<int, int> dirToPair(string str_dir);
 
 // checks if any protein is in the game
 bool proteinLeft(const map<string, vector<Entity*>> &entities);
@@ -168,6 +169,15 @@ int codingameMain()
             {
                 entities["OPP_ORGAN"].push_back(new_entity);
                 entities["OPP_" + type].push_back(new_entity);
+                if (type == "TENTACLE")
+                {
+                    pair<int, int> tent_dir = dirToPair(new_entity->organ_dir);
+                    pair<int, int> protect_pos = pair<int, int>{new_entity->x + tent_dir.first, new_entity->y + tent_dir.second};
+                    if (count(protected_tiles.begin(), protected_tiles.end(), protect_pos) == 0)
+                    {
+                        protected_tiles.push_back(protect_pos);
+                    }
+                }
             }
             else if (type.size() == 1)
             {
@@ -196,9 +206,9 @@ int codingameMain()
             previous_position = pair<int, int>{-1, -1};
 
             // growing a HARVESTER if possible (for now only one)
-            if (proteinLeft(entities) && entities.at("MY_HARVESTER").size() <= 1 && my_proteins[2] > 0 && my_proteins[3] > 0)
+            if (entities["A"].size() > entities.at("MY_HARVESTER").size() && entities.at("MY_HARVESTER").size() <= 1 && my_proteins[2] > 0 && my_proteins[3] > 0)
             {
-                closestProtein(grow_from, grow_to, 1, "A", entities);
+                closestProtein(grow_from, grow_to, 1, "A", entities, protected_tiles);
                 Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
                 Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
                 vector<Node> path = aStar(room, *start, *goal);
@@ -257,6 +267,32 @@ int codingameMain()
     }
 }
 
+// turns a direction such as "S" into a pair such as {1, 0}
+pair<int, int> dirToPair(string str_dir)
+{
+    if (str_dir == "N")
+    {
+        return pair<int, int>{0, -1};
+    }
+    else if (str_dir == "S")
+    {
+        return pair<int, int>{0, 1};
+    }
+    else if (str_dir == "E")
+    {
+        return pair<int, int>{1, 0};
+    }
+    else if (str_dir == "W")
+    {
+        return pair<int, int>{-1, 0};
+    }
+    else
+    {
+        cerr << "invalid string direction input" << endl;
+        return pair<int, int>{1, 0};
+    }
+}
+
 void growBasicOrTentacle(std::pair<int, int> &grow_to_pos, std::vector<std::vector<Entity *>> &room, std::map<std::string, std::vector<Entity *>> &entities, Entity *&grow_from, std::vector<std::pair<int, int>> &protected_tiles, std::string &grow_type, std::string &str_dir)
 {
     // if there are no more C or D proteins, grow in any empty space (preferably closer to the enemy to block him before)
@@ -270,7 +306,7 @@ void growBasicOrTentacle(std::pair<int, int> &grow_to_pos, std::vector<std::vect
         grow_type = "TENTACLE";
         pair<int, int> direction = pair<int, int>{(closest_enemy->x - grow_to_pos.first) / sqrt(dist), (closest_enemy->y - grow_to_pos.second) / sqrt(dist)};
         str_dir = pairToDir(direction);
-        protected_tiles.push_back(pair<int, int>{grow_to_pos.first + direction.first, grow_to_pos.first + direction.first});
+        //protected_tiles.push_back(pair<int, int>{grow_to_pos.first + direction.first, grow_to_pos.first + direction.first});
     }
 }
 
@@ -637,7 +673,7 @@ int accurateDistance(const Entity &ent1, const Entity &ent2)
 }
 
 // organ and protein closest to each other (1:my, 0:opp)
-int closestProtein(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities)
+int closestProtein(Entity *&closest_organ, Entity *&closest_protein, int player, const string &protein_type, const map<string, vector<Entity*>> &entities, vector<pair<int, int>> protected_tiles)
 {
     int dist_min = abs(numeric_limits<int>::max());
     vector<Entity*> organs;
@@ -658,12 +694,15 @@ int closestProtein(Entity *&closest_organ, Entity *&closest_protein, int player,
     {
         for (Entity *protein : proteins)
         {
-            int new_dist = euclDistance(organ, protein);
-            if (new_dist < dist_min)
+            if (count(protected_tiles.begin(), protected_tiles.end(), pair<int, int>{protein->x, protein->y}) == 0)
             {
-                dist_min = new_dist;
-                closest_organ = organ;
-                closest_protein = protein;
+                int new_dist = euclDistance(organ, protein);
+                if (new_dist < dist_min)
+                {
+                    dist_min = new_dist;
+                    closest_organ = organ;
+                    closest_protein = protein;
+                }
             }
         }
     }
@@ -716,7 +755,7 @@ int main(int argc, char **argv)
         // growing a HARVESTER if possible (for now only one)
         if (proteinLeft(entities) && entities.at("MY_SPORER").size() > 0 && entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
         {
-            closestProtein(grow_from, grow_to, 1, protein_type, entities);
+            closestProtein(grow_from, grow_to, 1, protein_type, entities, protected_tiles);
             Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
             Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
             vector<Node> path = aStar(room, *start, *goal);
@@ -743,7 +782,7 @@ int main(int argc, char **argv)
             {
                 Entity *closest_organ, *closest_protein;
                 pair<int, int> sporer_position, spore_position;
-                int dist = closestProtein(closest_organ, closest_protein, 1, protein_type, entities);
+                int dist = closestProtein(closest_organ, closest_protein, 1, protein_type, entities, protected_tiles);
                 if (needSporer(closest_organ, closest_protein, str_dir, sporer_position, spore_position, room))
                 {
                     action_queue.push("GROW " + to_string(closest_organ->organ_id) + " " + to_string(sporer_position.first) + " " + to_string(sporer_position.second) + " SPORER " + str_dir);
