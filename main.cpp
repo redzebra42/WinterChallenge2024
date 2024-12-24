@@ -125,6 +125,9 @@ bool needSporer(Entity *closest_organ, Entity *closest_protein, string &dir, pai
 
 void growBasicOrTentacle(std::pair<int, int> &grow_to_pos, std::vector<std::vector<Entity *>> &room, std::map<std::string, std::vector<Entity *>> &entities, Entity *&grow_from, std::vector<std::pair<int, int>> &protected_tiles, std::string &grow_type, std::string &str_dir);
 
+// returns a vector of direction in a random order
+vector<pair<int, int>> randomDirectionVect();
+
 int codingameMain()
 {
     int width;  // columns in the game grid
@@ -443,10 +446,32 @@ string faceDirection(Node from_node, Node to_node)
     else { return "X"; }
 }
 
+// returns a vector of direction in a random order
+vector<pair<int, int>> randomDirectionVect()
+{
+    int ran = rand() % 4;
+    if (ran == 0)
+    {
+        return {{1, 0}, {-1, 0}, {0, -1}, {0, 1}};
+    }
+    else if (ran == 1)
+    {
+        return{{-1, 0}, {1, 0}, {0, 1}, {0, -1}};
+    }
+    else if (ran == 2)
+    {
+        return{{0, -1}, {0, 1}, {1, 0}, {-1, 0}};
+    }
+    else
+    {
+        return{{0, 1}, {0, -1}, {-1, 0}, {1, 0}};
+    }
+}
+
 // return an empty space next to the organ, and {-1, -1} if there isn't one
 pair<int, int> nextEmptySpace(vector<vector<Entity*>> room, map<string, vector<Entity*>> entities, Entity *&from_organ, vector<pair<int, int>> protected_tiles)
 {
-    vector<pair<int, int>> directions = {{1, 0}, {-1, 0}, {0, -1}, {0, 1}};
+    vector<pair<int, int>> directions = randomDirectionVect();
     for (Entity *organ : entities.at("MY_ORGAN"))
     {
         for (const pair<int, int> dir : directions)
