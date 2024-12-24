@@ -123,6 +123,7 @@ bool proteinLeft(const map<string, vector<Entity*>> &entities);
 // checks if sporer is needed, and if so changes sporer_pos, spore_pos and dir
 bool needSporer(Entity *closest_organ, Entity *closest_protein, string &dir, pair<int, int> &sporer_pos, pair<int, int> &spore_pos, const vector<vector<Entity*>> &room);
 
+void growBasicOrTentacle(std::pair<int, int> &grow_to_pos, std::vector<std::vector<Entity *>> &room, std::map<std::string, std::vector<Entity *>> &entities, Entity *&grow_from, std::vector<std::pair<int, int>> &protected_tiles, std::string &grow_type, std::string &str_dir);
 
 int codingameMain()
 {
@@ -219,24 +220,16 @@ int codingameMain()
                     if (needSporer(closest_organ, closest_protein, str_dir, sporer_position, spore_position, room))
                     {
                         action_queue.push("GROW " + to_string(closest_organ->organ_id) + " " + to_string(sporer_position.first) + " " + to_string(sporer_position.second) + " SPORER " + str_dir);
-                        action_queue.push("SPORE 0 " + to_string(spore_position.first) + " " + to_string(spore_position.second));
+                        action_queue.push("SPORE NONE " + to_string(spore_position.first) + " " + to_string(spore_position.second));
+                    }
+                    else
+                    {
+                        growBasicOrTentacle(grow_to_pos, room, entities, grow_from, protected_tiles, grow_type, str_dir);
                     }
                 }
                 else
                 {
-                    // if there are no more C or D proteins, grow in any empty space (preferably closer to the enemy to block him before)
-                    grow_to_pos = nextEmptySpace(room, entities, grow_from, protected_tiles);
-                    
-                    //check if enemy nearby to grow tentacles
-                    Entity *closest_enemy;
-                    int dist = closestEntity(grow_to_pos, closest_enemy, "OPP_ORGAN", entities);
-                    if (dist <= 4)
-                    {
-                        grow_type = "TENTACLE";
-                        pair<int, int> direction = pair<int, int>{(closest_enemy->x-grow_to_pos.first)/sqrt(dist), (closest_enemy->y-grow_to_pos.second)/sqrt(dist)};
-                        str_dir = pairToDir(direction);
-                        protected_tiles.push_back(pair<int, int>{grow_to_pos.first + direction.first, grow_to_pos.first + direction.first});
-                    }
+                    growBasicOrTentacle(grow_to_pos, room, entities, grow_from, protected_tiles, grow_type, str_dir);
                 }
 
                 // grow the organ
@@ -266,13 +259,30 @@ int codingameMain()
     }
 }
 
+void growBasicOrTentacle(std::pair<int, int> &grow_to_pos, std::vector<std::vector<Entity *>> &room, std::map<std::string, std::vector<Entity *>> &entities, Entity *&grow_from, std::vector<std::pair<int, int>> &protected_tiles, std::string &grow_type, std::string &str_dir)
+{
+    // if there are no more C or D proteins, grow in any empty space (preferably closer to the enemy to block him before)
+    grow_to_pos = nextEmptySpace(room, entities, grow_from, protected_tiles);
+
+    // check if enemy nearby to grow tentacles
+    Entity *closest_enemy;
+    int dist = closestEntity(grow_to_pos, closest_enemy, "OPP_ORGAN", entities);
+    if (dist <= 4)
+    {
+        grow_type = "TENTACLE";
+        pair<int, int> direction = pair<int, int>{(closest_enemy->x - grow_to_pos.first) / sqrt(dist), (closest_enemy->y - grow_to_pos.second) / sqrt(dist)};
+        str_dir = pairToDir(direction);
+        protected_tiles.push_back(pair<int, int>{grow_to_pos.first + direction.first, grow_to_pos.first + direction.first});
+    }
+}
+
 // checks if sporer is needed, and if so changes sporer_pos, spore_pos and dir
 bool needSporer(Entity *closest_organ, Entity *closest_protein, string &dir, pair<int, int> &sporer_pos, pair<int, int> &spore_pos, const vector<vector<Entity*>> &room)
 {
     bool res;
     int dist_x = closest_protein->x - closest_organ->x;
     int dist_y = closest_protein->y - closest_organ->y;
-    res = abs(dist_x) > 5 && abs(dist_y) > 5;
+    res = abs(dist_x) > 5 || abs(dist_y) > 5;
     if (res)
     {
         if (abs(dist_x) >= abs(dist_y))
@@ -488,9 +498,9 @@ string fromPreviousOrgan(const string &action, pair<int, int> prev_pos, const ve
     act_stream >> tmp; // x
     new_action += tmp + " ";
     act_stream >> tmp; // y
+    new_action += tmp + " ";
     if (action_type == "GROW")
     {
-        new_action += tmp + " ";
         act_stream >> tmp; // organ type
         new_action += tmp + " ";
         act_stream >> tmp; // direction
