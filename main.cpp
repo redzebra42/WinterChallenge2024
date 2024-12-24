@@ -242,7 +242,7 @@ int codingameMain()
         // perform actions
         for (int i = 0; i < required_actions_count; i++)
         {
-            if (action_queue.size() > 0)
+            if (i == 0 && action_queue.size() > 0)
             {
                 string curr_action = action_queue.front();
                 if (previous_position != pair<int, int>{-1, -1})
