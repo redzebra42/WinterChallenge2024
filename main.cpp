@@ -187,7 +187,7 @@ int codingameMain()
             previous_position = pair<int, int>{-1, -1};
 
             // growing a HARVESTER if possible (for now only one)
-            if (proteinLeft(entities) && entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
+            if (proteinLeft(entities) && entities.at("MY_SPORER").size() > 0 && entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
             {
                 closestProtein(grow_from, grow_to, 1, protein_type, entities);
                 Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
@@ -225,15 +225,17 @@ int codingameMain()
                     else
                     {
                         growBasicOrTentacle(grow_to_pos, room, entities, grow_from, protected_tiles, grow_type, str_dir);
+                        // grow the organ
+                        action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " " + grow_type + " " + str_dir);
                     }
                 }
                 else
                 {
                     growBasicOrTentacle(grow_to_pos, room, entities, grow_from, protected_tiles, grow_type, str_dir);
+                    // grow the organ
+                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " " + grow_type + " " + str_dir);
                 }
 
-                // grow the organ
-                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " " + grow_type + " " + str_dir);
             }
         }
 
@@ -293,7 +295,7 @@ bool needSporer(Entity *closest_organ, Entity *closest_protein, string &dir, pai
             if (isFree(pair<int, int>{closest_organ->x + sign_x, closest_organ->y}, room))
             {
                 sporer_pos = pair<int, int>{closest_organ->x + sign_x, closest_organ->y};
-                spore_pos = pair<int, int>{closest_protein->x - sign_x, closest_organ->y};
+                spore_pos = pair<int, int>{closest_protein->x - 2*sign_x, closest_organ->y};
                 dir = pairToDir(pair<int, int>{sign_x, 0});
             }
             else
@@ -310,7 +312,7 @@ bool needSporer(Entity *closest_organ, Entity *closest_protein, string &dir, pai
             if (isFree(pair<int, int>{closest_organ->x, closest_organ->y + sign_y}, room))
             {
                 sporer_pos = pair<int, int>{closest_organ->x, closest_organ->y + sign_y};
-                spore_pos = pair<int, int>{closest_organ->x, closest_protein->y - sign_y};
+                spore_pos = pair<int, int>{closest_organ->x, closest_protein->y - 2*sign_y};
                 dir = pairToDir(pair<int, int>{0, sign_y});
             }
             else
@@ -326,7 +328,7 @@ bool needSporer(Entity *closest_organ, Entity *closest_protein, string &dir, pai
 // checks if any protein is in the game
 bool proteinLeft(const map<string, vector<Entity*>> &entities)
 {
-    return entities.at("A").size() > 0 && entities.at("B").size() > 0 && entities.at("C").size() > 0 && entities.at("D").size() > 0;
+    return entities.at("A").size() > 0 || entities.at("B").size() > 0 || entities.at("C").size() > 0 || entities.at("D").size() > 0;
 }
 
 // turns a pair such as {1, 0} into a direction such as "S"
@@ -400,7 +402,7 @@ vector<Node> aStar(vector<vector<Entity*>> &grid, Node start, Node goal) {
             int newY = current.y + dir.second;
             
             // Skip out-of-bound or blocked cells or cells in the closed list
-            if (newX < 0 || newX >= rows || newY < 0 || newY >= cols || !isFree(pair<int, int>{newX, newY}, grid) || closedList[newX][newY]) {
+            if (newX < 0 || newX >= cols || newY < 0 || newY >= rows || !isFree(pair<int, int>{newX, newY}, grid) || closedList[newX][newY]) {
                 continue;
             }
 
@@ -685,50 +687,59 @@ int main(int argc, char **argv)
     // do an action only if the queue is empty
     if (action_queue.size() == 0)
     {
+        // reset previous_position (path is finished)
+        previous_position = pair<int, int>{-1, -1};
+
         // growing a HARVESTER if possible (for now only one)
-        if (entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
+        if (proteinLeft(entities) && entities.at("MY_SPORER").size() > 0 && entities.at("MY_HARVESTER").size() == 0 && my_proteins[2] > 0 && my_proteins[3] > 0)
         {
             closestProtein(grow_from, grow_to, 1, protein_type, entities);
             Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
             Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
             vector<Node> path = aStar(room, *start, *goal);
-            cout << start->x << " " << start->y << "  " << goal->x << " " << goal->y << endl;
-            printPath(path);
+            protected_tiles.push_back(pair<int, int>{goal->x, goal->y});
             if (path.size() > 1)
             {
-                Node harvester_pos = path[path.size()-2];
-                string direction = faceDirection(harvester_pos, path[path.size()-1]);
-                if (path.size() > 2)
-                {
-                    // grow the basic path before putting the harvester
-                    for (int i=1; i<path.size()-2; i++)
-                    {
-                        action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[i].x) + " " + to_string(path[i].y) + " BASIC N");
-                    }
-                }
-                // grow the harvester
-                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(harvester_pos.x) + " " + to_string(harvester_pos.y) + " HARVESTER " + direction);
+                queue<string> harv_queue = growHarvestor(path, grow_from);
+                pushQueue(action_queue, harv_queue);
             }
             else
             {
                 // if the prootein is already neighbouring (could probably be improved by checking if surroudings are free, but too rare)
-                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[0].x) + " " + to_string(path[0].y) + " BASIC N");
+                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(path[0].x) + " " + to_string(path[0].y) + " BASIC " +  "N");
             }
         }
         else if (my_proteins[0] > 0)
         {
-            // find the best organ to make
-            if (entities.at(protein_type).size() > 0)
+            pair<int, int> grow_to_pos;
+            string grow_type = "BASIC";
+            string str_dir = "N";
+
+            // if there are still 2B, 2D, 1A, 1C, at least and closest protien is far, then grow a sporer
+            if (my_proteins[1] >= 2 && my_proteins[2] >= 1 && my_proteins[3] >= 2)
             {
-                closestProtein(grow_from, grow_to, 1, protein_type, entities);
-                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to->x) + " " + to_string(grow_to->y) + " BASIC " + "N");
+                Entity *closest_organ, *closest_protein;
+                pair<int, int> sporer_position, spore_position;
+                int dist = closestProtein(closest_organ, closest_protein, 1, protein_type, entities);
+                if (needSporer(closest_organ, closest_protein, str_dir, sporer_position, spore_position, room))
+                {
+                    action_queue.push("GROW " + to_string(closest_organ->organ_id) + " " + to_string(sporer_position.first) + " " + to_string(sporer_position.second) + " SPORER " + str_dir);
+                    action_queue.push("SPORE NONE " + to_string(spore_position.first) + " " + to_string(spore_position.second));
+                }
+                else
+                {
+                    growBasicOrTentacle(grow_to_pos, room, entities, grow_from, protected_tiles, grow_type, str_dir);
+                    // grow the organ
+                    action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " " + grow_type + " " + str_dir);
+                }
             }
             else
             {
-                // if there are no more proteins, grow in any empty space (preferably closer to the enemy to block him before)
-                pair<int, int> grow_to_pos = nextEmptySpace(room, entities, grow_from, protected_tiles);
-                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " BASIC " + "N");
+                growBasicOrTentacle(grow_to_pos, room, entities, grow_from, protected_tiles, grow_type, str_dir);
+                // grow the organ
+                action_queue.push("GROW " + to_string(grow_from->organ_id) + " " + to_string(grow_to_pos.first) + " " + to_string(grow_to_pos.second) + " " + grow_type + " " + str_dir);
             }
+
         }
     }
 
@@ -737,7 +748,13 @@ int main(int argc, char **argv)
     {
         if (action_queue.size() > 0)
         {
-            cout << action_queue.front() << endl;
+            string curr_action = action_queue.front();
+            if (previous_position != pair<int, int>{-1, -1})
+            {
+                curr_action = fromPreviousOrgan(curr_action, previous_position, room);
+            }
+            cout << curr_action << endl;
+            previous_position = actionToPosition(curr_action);
             action_queue.pop();
         }
         else
@@ -745,12 +762,16 @@ int main(int argc, char **argv)
             cout << "WAIT" << endl;
         }
     }
-    
+
+    // debugging aStar
+    Node *start = new Node(6, 2, 0, heuristic(6, 2, 16, 6));
+    Node *goal = new Node(16, 6, 0, 0);
+    vector<Node> path = aStar(room, *start, *goal);
+    printPath(path);
 
     printRoom(room, my_proteins, opp_proteins);
-
-    return 0;
 }
+
 
 vector<vector<Entity*>> readInputFromFile(int &entity_count, const string &file_name, int &width, int &height, vector<int> &my_proteins, vector<int> &opp_proteins, int &required_actions_count, map<string, vector<Entity*>> &entities)
 {
