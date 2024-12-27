@@ -17,6 +17,7 @@ struct Entity
 {
     int x, y, owner, organ_id, organ_parent_id, organ_root_id;
     string type, organ_dir;
+
     Entity() :
         x(0),
         y(0),
@@ -26,6 +27,7 @@ struct Entity
         organ_dir("NONE"),
         organ_parent_id(0),
         organ_root_id(0) {}
+
     Entity(int _x, int _y, string _type, int _owner, int _organ_id, string _organ_dir, int _organ_parent_id, int _organ_root_id) : 
         x(_x),
         y(_y),
@@ -35,6 +37,16 @@ struct Entity
         organ_dir(_organ_dir),
         organ_parent_id(_organ_parent_id),
         organ_root_id(_organ_root_id) {}
+};
+
+struct GameState
+{
+    vector<vector<Entity*>> *room;
+    int curr_player;
+
+    GameState(vector<vector<Entity*>> *_room, int _curr_player) :
+        room(_room),
+        curr_player(_curr_player) {}
 };
 
 // Structure to represent a node in the grid
@@ -128,6 +140,23 @@ void growBasicOrTentacle(std::pair<int, int> &grow_to_pos, std::vector<std::vect
 
 // returns a vector of direction in a random order
 vector<pair<int, int>> randomDirectionVect();
+
+//----------------------------------
+// functions to replicate the game
+//----------------------------------
+
+// returns if an action is legal
+bool isLegal(const string &action, const GameState &state);
+
+// parse an action 
+void parseAction(const string &action, string &action_type, int &parent_id, int &x, int &y, string &organ_type, string &dir);
+
+// return a new state
+GameState *playAction(const string &action, const GameState &state);
+
+// evaluates a game state
+float evaluation(const GameState state);
+
 
 int codingameMain()
 {
@@ -355,6 +384,53 @@ bool needSporer(Entity *closest_organ, Entity *closest_protein, string &dir, pai
         }
     }
     return res;
+}
+
+// returns if an action is legal
+bool isLegal(const string &action, const GameState &state)
+{
+    return true;
+}
+
+// parse an action 
+void parseAction(const string &action, string &action_type, int &parent_id, int &x, int &y, string &organ_type, string &dir)
+{
+    stringstream action_stream (action);
+    action_stream >> action_type >> parent_id >> x >> y;
+    if (action_type == "GROW")
+    {
+        action_stream >> organ_type >> dir;
+    }
+}
+
+// add an entity to a certain coordinate
+void addEntity()
+{
+
+}
+
+// return a new state
+GameState *playAction(const string &action, const GameState &state)
+{
+    if (isLegal(action, state))
+    {
+        vector<vector<Entity*>> *new_room; // == copyRoom(state.room)
+        GameState *new_state = new GameState(new_room, state.curr_player);
+        int x, y, id, owner, parent_id, root_id;
+        string organ_type, action_type, dir;
+        parseAction(action, action_type, parent_id, x, y, organ_type, dir);
+    }
+    else
+    {
+        cerr << "illegal action" << endl;
+        return nullptr;
+    }
+}
+
+// evaluates a game state
+float evaluation(const GameState state)
+{
+
 }
 
 // checks if any protein is in the game
