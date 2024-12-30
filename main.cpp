@@ -13,6 +13,7 @@ using namespace std;
 
 // TODO fix bug that makes me randomly lose the games...
 // TODO add a legal_moves vector that's updated every action
+// TODO when no more A protein, grow othe organs
 
 struct Entity
 {
@@ -144,6 +145,9 @@ void growBasicOrTentacle(std::pair<int, int> &grow_to_pos, std::vector<std::vect
 // returns a vector of direction in a random order
 vector<pair<int, int>> randomDirectionVect();
 
+// returns the next protein to harvest ("X" if none)
+string nextProteinToHarvest(map<string, vector<Entity*>> entities, vector<int> my_proteins, vector<vector<Entity*>> room, map<string, pair<int, int>> harvested_proteins_pos);
+
 //----------------------------------
 // functions to replicate the game
 //----------------------------------
@@ -233,8 +237,7 @@ int codingameMain()
 
         // other variable declarations
         Entity *grow_from, *grow_to;
-        vector<pair<int, int>> harvested_proteins_pos;
-        vector<string> harvested_protein_type;
+        map<string, pair<int, int>> harvested_proteins;
 
         // do an action only if the queue is empty
         if (action_queue.size() == 0)
@@ -243,13 +246,15 @@ int codingameMain()
             previous_position = pair<int, int>{-1, -1};
 
             // growing a HARVESTER if possible (for now only two A)
-            if (entities["A"].size() > entities.at("MY_HARVESTER").size() && entities.at("MY_HARVESTER").size() <= 1 && my_proteins[2] > 0 && my_proteins[3] > 0)
+            string protein_to_harvest = nextProteinToHarvest(entities, my_proteins, room, harvested_proteins);
+            if (protein_to_harvest != "X")
             {
-                closestProtein(grow_from, grow_to, 1, "A", entities, protected_tiles);
+                closestProtein(grow_from, grow_to, 1, protein_to_harvest, entities, protected_tiles);
                 Node *start = new Node(grow_from->x, grow_from->y, 0, heuristic(grow_from->x, grow_from->y, grow_to->x, grow_to->y));
                 Node *goal = new Node(grow_to->x, grow_to->y, 0, 0);
                 vector<Node> path = aStar(room, *start, *goal);
                 protected_tiles.push_back(pair<int, int>{goal->x, goal->y});
+                harvested_proteins[protein_to_harvest] = pair<int, int>{goal->x, goal->y};
                 if (path.size() > 2)
                 {
                     queue<string> harv_queue = growHarvestor(path, grow_from);
@@ -302,6 +307,24 @@ int codingameMain()
             }
         }
     }
+}
+
+// returns the next protein to harvest ("X" if none)
+string nextProteinToHarvest(map<string, vector<Entity*>> entities, vector<int> my_proteins, vector<vector<Entity*>> room, map<string, pair<int, int>> harvested_proteins_pos)
+{
+    string res = "X";
+    if (my_proteins[2] > 0 && my_proteins[3] > 0)
+    {
+        for (string next_prot : vector<string>{"A", "B", "C", "D"})
+        {
+            if (harvested_proteins_pos.count(next_prot) > 0 && isFree(harvested_proteins_pos.at(next_prot), room))
+            {
+                res = next_prot;
+                break;
+            }
+        }
+    }
+    return res;
 }
 
 // turns a direction such as "S" into a pair such as {1, 0}
