@@ -12,6 +12,7 @@
 using namespace std;
 
 // TODO fix bug that makes me randomly lose the games...
+// TODO add a legal_moves vector that's updated every action
 
 struct Entity
 {
@@ -43,10 +44,12 @@ struct GameState
 {
     vector<vector<Entity*>> *room;
     int curr_player;
+    vector<pair<int, int>> legal_moves;
 
-    GameState(vector<vector<Entity*>> *_room, int _curr_player) :
+    GameState(vector<vector<Entity*>> *_room, int _curr_player, vector<pair<int, int>> _legal_moves) :
         room(_room),
-        curr_player(_curr_player) {}
+        curr_player(_curr_player),
+        legal_moves(_legal_moves) {}
 };
 
 // Structure to represent a node in the grid
@@ -148,6 +151,9 @@ vector<pair<int, int>> randomDirectionVect();
 // returns if an action is legal
 bool isLegal(const string &action, const GameState &state);
 
+// add an entity to a certain coordinate
+void addEntity(int parent_id, int x, int y, string organ_type, string dir);
+
 // parse an action 
 void parseAction(const string &action, string &action_type, int &parent_id, int &x, int &y, string &organ_type, string &dir);
 
@@ -227,6 +233,8 @@ int codingameMain()
 
         // other variable declarations
         Entity *grow_from, *grow_to;
+        vector<pair<int, int>> harvested_proteins_pos;
+        vector<string> harvested_protein_type;
 
         // do an action only if the queue is empty
         if (action_queue.size() == 0)
@@ -234,7 +242,7 @@ int codingameMain()
             // reset previous_position (path is finished)
             previous_position = pair<int, int>{-1, -1};
 
-            // growing a HARVESTER if possible (for now only one)
+            // growing a HARVESTER if possible (for now only two A)
             if (entities["A"].size() > entities.at("MY_HARVESTER").size() && entities.at("MY_HARVESTER").size() <= 1 && my_proteins[2] > 0 && my_proteins[3] > 0)
             {
                 closestProtein(grow_from, grow_to, 1, "A", entities, protected_tiles);
@@ -396,15 +404,19 @@ bool isLegal(const string &action, const GameState &state)
 void parseAction(const string &action, string &action_type, int &parent_id, int &x, int &y, string &organ_type, string &dir)
 {
     stringstream action_stream (action);
-    action_stream >> action_type >> parent_id >> x >> y;
-    if (action_type == "GROW")
+    action_stream >> action_type;
+    if (action_type != "WAIT")
     {
-        action_stream >> organ_type >> dir;
+        action_stream >> parent_id >> x >> y;
+        if (action_type == "GROW")
+        {
+            action_stream >> organ_type >> dir;
+        }
     }
 }
 
 // add an entity to a certain coordinate
-void addEntity()
+void addEntity(int parent_id, int x, int y, string organ_type, string dir)
 {
 
 }
@@ -415,10 +427,18 @@ GameState *playAction(const string &action, const GameState &state)
     if (isLegal(action, state))
     {
         vector<vector<Entity*>> *new_room; // == copyRoom(state.room)
-        GameState *new_state = new GameState(new_room, state.curr_player);
+        GameState *new_state = new GameState(new_room, state.curr_player, state.legal_moves);
         int x, y, id, owner, parent_id, root_id;
         string organ_type, action_type, dir;
         parseAction(action, action_type, parent_id, x, y, organ_type, dir);
+        if (action_type == "GROW")
+        {
+            addEntity(parent_id, x, y, organ_type, dir);
+        }
+        else if (action_type == "SPORE")
+        {
+            // TODO
+        }
     }
     else
     {
