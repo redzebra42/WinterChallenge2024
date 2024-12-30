@@ -178,6 +178,7 @@ int codingameMain()
     Entity *previous_entity;
     pair<int, int> previous_position =  pair<int, int>{-1, -1};
     vector<pair<int, int>> protected_tiles;
+    map<string, pair<int, int>> harvested_proteins;
 
     // game loop
     while (1) {
@@ -237,7 +238,6 @@ int codingameMain()
 
         // other variable declarations
         Entity *grow_from, *grow_to;
-        map<string, pair<int, int>> harvested_proteins;
 
         // do an action only if the queue is empty
         if (action_queue.size() == 0)
@@ -317,7 +317,7 @@ string nextProteinToHarvest(map<string, vector<Entity*>> entities, vector<int> m
     {
         for (string next_prot : vector<string>{"A", "B", "C", "D"})
         {
-            if (harvested_proteins_pos.count(next_prot) > 0 && isFree(harvested_proteins_pos.at(next_prot), room))
+            if (harvested_proteins_pos.count(next_prot) == 0 || !isFree(harvested_proteins_pos.at(next_prot), room))
             {
                 res = next_prot;
                 break;
