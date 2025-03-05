@@ -11,9 +11,10 @@
 
 using namespace std;
 
-// TODO fix bug that makes me randomly lose the games...
 // TODO add a legal_moves vector that's updated every action
 // TODO when no more A protein, grow othe organs
+// TODO check if enough proteins to go harvest in the proteinToHarvest or something
+// TODO choose the organ type at the last moment (maybe with list of organs in order (just putting the one we want in first, then the rest is like normal order))
 
 struct Entity
 {
@@ -148,6 +149,9 @@ vector<pair<int, int>> randomDirectionVect();
 // returns the next protein to harvest ("X" if none)
 string nextProteinToHarvest(map<string, vector<Entity*>> entities, vector<int> my_proteins, vector<vector<Entity*>> room, map<string, pair<int, int>> harvested_proteins_pos);
 
+// returns the next possible protein to grow (in order BASIC, TENTACLE, HARVESTER, SPORER, NO_ORGAN if not possible)
+string organToGrow(vector<int> my_proteins);
+
 //----------------------------------
 // functions to replicate the game
 //----------------------------------
@@ -274,10 +278,10 @@ int codingameMain()
                     }
                 }
             }
-            else if (my_proteins[0] > 0)
+            else if (organToGrow(my_proteins) != "NO_ORGAN")
             {
                 pair<int, int> grow_to_pos;
-                string grow_type = "BASIC";
+                string grow_type = organToGrow(my_proteins);
                 string str_dir = "N";
 
                 //grow a basic or tentacle if close to enemy
@@ -844,6 +848,31 @@ int closestEntity(pair<int, int> start_pos, Entity *&closest_entity, string enti
         }
     }
     return dist_min;
+}
+
+// returns the next possible protein to grow (in order BASIC, TENTACLE, HARVESTER, SPORER, NO_ORGAN if not possible)
+string organToGrow(vector<int> my_proteins)
+{
+    if (my_proteins[0] > 0)
+    {
+        return "BASIC";
+    }
+    else if (my_proteins[1] > 0 && my_proteins[2] > 0)
+    {
+        return "TENTACLE";
+    }
+    else if (my_proteins[2] > 0 && my_proteins[3] > 0)
+    {
+        return "HARVESTER";
+    }
+    else if (my_proteins[1] > 0 && my_proteins[3] > 0)
+    {
+        return "SPORER";
+    }
+    else
+    {
+        return "NO_ORGAN";
+    }
 }
 
 int main(int argc, char **argv)
